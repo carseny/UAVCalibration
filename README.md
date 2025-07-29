@@ -148,6 +148,64 @@ $$
 
 ### 论文调研
 
+#### Cross-view geo-localization: a survey
+
+-   背景与动机
+    -   随着大规模地理标注数据集和机器学习技术的发展，跨视角地理定位成为研究热点
+    -   在自动驾驶、增强现实、环境监测等领域具有重要应用
+-   本文贡献
+    -   全面梳理特征工程与深度学习两大类主流方法
+    -   总结数据集、评价指标与现有挑战
+    -   展望未来研究方向与应用前景
+
+##### 问题定义
+
+-   输入：未知坐标的地面视角图像
+-   数据库：带有已知经纬度的航拍/卫星图像集合
+-   输出：查询图像的最可能地理坐标
+
+##### 方法演变
+
+-   基于像素/几何的早期方法
+
+    -   像素级地理对齐（Geodetic alignment）
+    -   传感器模型+正射校正
+
+-   基于手工特征的方法
+
+    -   特征提取+匹配：SIFT、SURF、词汇树等
+    -   同视图与跨视图匹配策略
+
+-   基于深度学习的方法
+    -   Siamese 网络与三元组损失
+    -   Capsule 网络
+    -   GAN 生成与合成式检索
+    -   Transformer 与自注意力机制
+
+##### 多视角匹配中的主要挑战
+
+-   视角差异与尺度变化
+-   光照变化、遮挡与动态物体
+-   数据规模大，检索效率瓶颈
+
+##### 数据集与评价指标
+
+-   常用数据集
+    -   Pittsburgh 250k、CVUSA、CVACT 等
+-   评价指标
+    -   Top‑k 精度、召回率、定位误差
+
+##### 方法对比与性能分析
+
+-   不同方法在各数据集上的性能比较
+-   特征工程 vs. 深度学习的优缺点
+
+##### 未来展望与应用
+
+-   融合多源、多模态信息
+-   轻量化模型与在线检索加速
+-   在智能交通、应急响应、增强现实等场景中的落地
+
 #### 传统图像特征提取算法
 
 -   SIFT（Scale-Invariant Feature Transform，尺度不变特征变换）是一种经典的图像局部特征提取算法，由 David Lowe 在 1999 年提出并在 2004 年完善。它能够在图像中检测并描述对尺度缩放、旋转、亮度变化甚至一定程度的视角变化和仿射变换保持稳定的关键特征点。
@@ -177,11 +235,10 @@ Pix2Map 使用 ResNet 与 Transformer 模型分别将图像特征与地图特征
 
 #### TODO
 
--   Lending Orientation to Neural Networks for Cross-View Geo-Localization (2019)
--   Each Part Matters: Local Patterns Facilitate Cross-View Geo-Localization (2020)
--   University-1652: A Multi-view Multi-source Benchmark for Drone-based Geo-localization (2020, dataset)
--   UAV-Satellite View Synthesis for Cross-View Geo-Localization (2022)
 -   Multiple-environment Self-adaptive Network for Aerial-view Geo-localization (2022)
+-   A Transformer-Based Feature Segmentation and Region Alignment Method for UAV-View Geo-Localization
+-   SDPL: Shifting-Dense Partition Learning for UAV-View Geo-Localization
+-   A Faster and More Effective Cross-View Matching Method of UAV and Satellite Images for UAV Geolocalization
 
 ### 卫星图处理
 
