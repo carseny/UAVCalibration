@@ -1,7 +1,7 @@
 [project]
-name = "uavlocation"
+name = "uav-calibration"
 version = "0.1.0"
-description = "Vision-Based UAV Self-Positioning"
+description = "Vision-Based UAV Image Calibration"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
