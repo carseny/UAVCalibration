@@ -146,7 +146,7 @@ $$
 
 ## 图像匹配
 
-### 论文调研
+### Cross-view Geo-localization 论文调研
 
 #### Cross-view geo-localization: a survey
 
@@ -206,11 +206,6 @@ $$
 -   轻量化模型与在线检索加速
 -   在智能交通、应急响应、增强现实等场景中的落地
 
-#### 传统图像特征提取算法
-
--   SIFT（Scale-Invariant Feature Transform，尺度不变特征变换）是一种经典的图像局部特征提取算法，由 David Lowe 在 1999 年提出并在 2004 年完善。它能够在图像中检测并描述对尺度缩放、旋转、亮度变化甚至一定程度的视角变化和仿射变换保持稳定的关键特征点。
--   HOG（方向梯度直方图）特征提取是一种基于图像局部梯度方向统计分布的目标描述方法，在行人检测等任务中展现出对几何形变和局部光照变化的较强鲁棒性。
-
 #### CLIP
 
 [CLIP](https://github.com/openai/CLIP)使用了对比学习方法，在大量互联网上的图像-文本对进行训练，能够从语义上对 zero-shot 图像进行特征提取与匹配。
@@ -219,7 +214,7 @@ $$
 
 [Pix2Map](https://arxiv.org/pdf/2301.04224) 针对驾驶场景，从车辆的第一视角图像中直接推断出对应街区的地图拓扑结构，以根据需要不断更新和扩展现有地图。。
 
-![](https://pix2map.github.io/figures/3.png)
+![Pix2Map Architecture](https://pix2map.github.io/figures/3.png)
 
 Pix2Map 使用 ResNet 与 Transformer 模型分别将图像特征与地图特征进行编码到特征向量，使用类似 CLIP 的对比学习机制进行特征对齐，从而实现图像到地图的匹配。
 
@@ -233,12 +228,55 @@ Pix2Map 使用 ResNet 与 Transformer 模型分别将图像特征与地图特征
 -   需要大量的标注数据进行训练。
 -   相对于传统方法来说，模型可解释性差、鲁棒性可能不足。
 
-#### TODO
+#### Multiple-environment Self-adaptive Network for Aerial-view Geo-localization
 
--   Multiple-environment Self-adaptive Network for Aerial-view Geo-localization (2022)
--   A Transformer-Based Feature Segmentation and Region Alignment Method for UAV-View Geo-Localization
--   SDPL: Shifting-Dense Partition Learning for UAV-View Geo-Localization
--   A Faster and More Effective Cross-View Matching Method of UAV and Satellite Images for UAV Geolocalization
+使用一个额外的风格预测网络，解决无人机图像在不同环境下（雨天、雾天等）识别准确性问题。
+
+#### Sample4Geo: Hard Negative Sampling For Cross-View Geo-Localisation
+
+![Sample4Geo](https://ar5iv.labs.arxiv.org/html/2303.11851/assets/x2.png)
+
+##### Symmetric InfoNCE Loss
+
+$ℒ(q,R)_\text{InfoNCE} = -log \frac{exp(q ⋅ r_+ / τ)}{ \sum_{i=0}^{N} exp(q ⋅ r_i / τ)}$
+
+> $q$ denotes an encoded street-view, the so-called query, and $R$ is a set of encoded satellite images called references. Only one positive $r_i$, namely $r_+$ matches to $q$. The InfoNCE loss uses the dot-product to calculate the similarity between query and reference images and is low when the query and the positive match are similar, and high when the negative $r_i$ are dissimilar to $q$. As loss function for the similarity between the views the cross-entropy is calculated. The temperature parameter $τ$ is a hyperparameter that can either be learned [30] or set to a static value.
+
+> So far, InfoNCE loss has mostly been used in a non-symmetric fashion for unsupervised representation learning for images [28, 29]. A symmetric formulation showed to be useful in multi-modal pre-training [30] to bridge the gap between the modalities. Therefore we utilise this loss function in the same symmetric fashion to leverage the flow of information in both directions: satellite-view to street-view and vice versa. In the InfoNCE loss, a positive example is always contrasted with N-1 negative examples, where N denotes the batch size, thus delimiting many examples at once. **But in cases where there are several positive examples, such as University-1652, this requires a custom sampler to prevent multiple positives for the same ground truth label in one batch.** We provide an ablation study of the importance of symmetry in the InfoNCE loss and a comparison to the triplet loss in our supplementary material.
+
+##### Model Architecture
+
+使用 Siamese 网络，用一个权重共享的 ConvNeXt 作为两个视图的单一编码器
+
+#### Each Part Matters: Local Patterns Facilitate Cross-view Geo-localization
+
+![LPN](https://ar5iv.labs.arxiv.org/html/2008.11646/assets/x3.png)
+
+认为图像不同环形分区具有不同语义，不同图片相同分区内语义一一对应。（个人感觉有点过于针对无人机环绕拍摄的数据集了）
+
+提出 Local Pattern Network (LPN)，在全局池化前分离不同环形区域并分别池化。
+
+#### A Transformer-Based Feature Segmentation and Region Alignment Method for UAV-View Geo-Localization
+
+-   使用预训练的分类网络按 patch 进行特征向量提取
+-   将特征向量所有维度取平均得到 thermal value 标量（似乎有点蠢）
+-   通过 thermal value 将图像分割为不同区域
+-   将每类的分类结果分别进行平均池化和对齐
+
+### Image Matching 论文调研
+
+#### SIFT（Scale-Invariant Feature Transform）
+
+-   SIFT 是一种经典的图像局部特征提取算法，由 David Lowe 在 1999 年提出并在 2004 年完善。它能够在图像中检测并描述对尺度缩放、旋转、亮度变化甚至一定程度的视角变化和仿射变换保持稳定的关键特征点。
+
+#### HOG
+
+-   HOG（方向梯度直方图）特征提取是一种基于图像局部梯度方向统计分布的目标描述方法，在行人检测等任务中展现出对几何形变和局部光照变化的较强鲁棒性。
+
+### TODO
+
+-   Image Matching from Handcrafted to Deep Features: A Survey
+-   Geo-Localization of Street Views with Aerial Image Databases
 
 ### 卫星图处理
 
