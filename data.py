@@ -11,7 +11,7 @@ from datetime import datetime
 from functools import lru_cache
 
 Image.MAX_IMAGE_PIXELS = 1 << 32
-LARGE_IMAGE_CACHE_SIZE = 2
+LARGE_IMAGE_CACHE_SIZE = 1
 
 
 @dataclass
@@ -75,7 +75,7 @@ class SatelliteData:
     def load_large_image(image_path):
         image = cv2.imread(image_path)
         assert image is not None, f"Failed to load image {image_path}"
-        return image
+        return image[..., ::-1]  # Convert BGR to RGB
 
     @property
     def image(self):
@@ -152,7 +152,7 @@ class UAVData:
     def image(self):
         image = cv2.imread(self.image_path)
         assert image is not None, f"Failed to load image {self.filename}"
-        return image
+        return image[..., ::-1]  # Convert BGR to RGB
 
     @property
     def cam_mat(self):
@@ -261,7 +261,7 @@ if __name__ == "__main__":
         satellite = dataset.get_satellite_area(d)
         h, w = image.shape[:2]
         view_shape = (w // 5, h // 5)
-        cv2.imshow("Original", cv2.resize(image, view_shape))
-        cv2.imshow("Corrected", cv2.resize(corrected, view_shape))
-        cv2.imshow("Satellite", cv2.resize(satellite, view_shape))
+        cv2.imshow("Original", cv2.resize(image, view_shape)[..., ::-1])
+        cv2.imshow("Corrected", cv2.resize(corrected, view_shape)[..., ::-1])
+        cv2.imshow("Satellite", cv2.resize(satellite, view_shape)[..., ::-1])
         cv2.waitKey(0)
