@@ -1,10 +1,14 @@
 [project]
-name = "uav-calibration"
+name = "uavcalibration"
 version = "0.1.0"
 description = "Vision-Based UAV Image Calibration"
+authors = [{ name = "Shenyao Chen" }]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "opencv-python>=4.12.0.88",
+    "ipykernel>=6.30.1",
+    "lightglue @ file:///${PROJECT_ROOT}/thirdparty/lightglue",
+    "opencv-python>=4.11.0.86",
     "pillow>=11.3.0",
+    "torch>=2.4.0",
 ]

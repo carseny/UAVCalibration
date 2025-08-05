@@ -146,6 +146,17 @@ $$
 
 ## 图像匹配
 
+### 问题描述
+
+需要建立从无人机图像到卫星图像的精确（<10m）对应关系，从而获得无人机图像上目标的精确坐标信息。
+
+在经过反投影矫正后，仍面临以下问题
+
+-   无人机 6 DOF 数据不精确导致的偏移/尺度/旋转不对应
+-   拍摄角度变化导致的视角、遮挡关系不对应
+-   拍摄时间变化导致的风格不对应
+-   常见的图像匹配任务专注于匹配图像内某一部分，而航拍图像与卫星图像视野极广
+
 ### Cross-view Geo-localization 论文调研
 
 #### Cross-view geo-localization: a survey
@@ -319,11 +330,14 @@ SIFT 是一种经典的图像局部特征提取算法，由 David Lowe 在 1999 
 
 #### SuperPoint
 
-用于检测兴趣点和编码描述符
+用于检测兴趣点和编码描述符。
+
+-   使用生成的数据监督预训练
+-   在无标注数据集上进一步自监督训练
 
 ##### 网络架构
 
-![](https://ar5iv.labs.arxiv.org/html/1712.07629/assets/x3.png)
+![SuperPoint Architecture](https://ar5iv.labs.arxiv.org/html/1712.07629/assets/x3.png)
 
 1. 网络
    使用同一个卷积 (VGG Net) 编码兴趣点和描述符，并分别通过 PixelShuffle 和 Bi-Cubic 插值上采样到原始尺寸。
@@ -346,19 +360,34 @@ SIFT 是一种经典的图像局部特征提取算法，由 David Lowe 在 1999 
 
 #### SuperGlue
 
-![](https://ar5iv.labs.arxiv.org/html/1911.11763/assets/x4.png)
-
 基于注意力图神经网络的特征点匹配中端，从两组给定特征点与描述符寻找匹配点。
 
 -   需要使用特征点检测前端，与 SuperPoint 相性很好
 -   监督训练
--   可以端到端训练，冻结特征点检测部分，仅训练描述符网络
+-   全程梯度可传导，可以端到端训练。但是只能训练描述符网络，冻结特征点检测部分
+
+##### 网络架构
+
+![SuperGlue Architecture](https://ar5iv.labs.arxiv.org/html/1911.11763/assets/x4.png)
+
+-   使用 self/cross attention 进行图像间信息提取
+-   使用 sinkhorn 算法在余弦相似度上寻找最佳匹配，梯度可传导
+
+#### LoFTR
+
+仿照 SuperPoint + SuperGlue，但是抛弃特征点检测部分，在密集的粗粒度特征图像上进行特征点匹配，最后在细粒度上进行精校。
+
+-   监督训练
+
+##### 网络架构
+
+![LoFTR Architecture](https://ar5iv.labs.arxiv.org/html/2104.00680/assets/x2.png)
+
+-   使用 CNN 与 U-Net 结构提取图像特征
+-   使用 self/cross attention 进行图像间信息提取，其中使用线性的注意力算法
 
 ### TODO
 
--   SuperPoint: Self-Supervised Interest Point Detection and Description
--   superglue: Learning feature matching with graph neural networks.
--   LoFTR: Detector-Free Local Feature Matching with Transformers
 -   LF-Net: Learning Local Features from Images
 -   A deep learning framework for unsupervised affine and deformable image registration.
 -   Lightglue: Local feature matching at light speed
