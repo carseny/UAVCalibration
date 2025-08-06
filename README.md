@@ -33,7 +33,7 @@ f_x & s & c_x \\
 \end{bmatrix}
 $$
 
-设三维空间中的点为(x,y,z)，二维图像平面上的点为(x',y')（归一化到[0,1])，则它们之间的映射关系可以表示为：
+设三维空间中的点为(x,y,z)，二维图像平面上的点为(x',y')，则它们之间的映射关系可以表示为：
 
 $$
 \begin{bmatrix}
@@ -188,6 +188,7 @@ $$
     -   同视图与跨视图匹配策略
 
 -   基于深度学习的方法
+
     -   Siamese 网络与三元组损失
     -   Capsule 网络
     -   GAN 生成与合成式检索
@@ -282,13 +283,10 @@ $ℒ(q,R)_\text{InfoNCE} = -log \frac{exp(q ⋅ r_+ / τ)}{ \sum_{i=0}^{N} exp(q
 
 1. 图像配准（Image Registration）与全景拼接（Stitching）
    将两张或多张图像对齐、融合为一个一致图像，以生成全景或做时序比较。
-
 2. 结构恢复与视觉定位（3D Reconstruction / Visual Localization / SLAM）
    通过图像间对应关系恢复三维结构或估计相机姿态，用于自动导航、地图构建等。
-
 3. 视觉归巢（Visual Homing）
    机器人仅凭视觉信息确定当前位置相对于“家”所在方向，基于匹配特征或 motion flow 估计归向矢量。
-
 4. 图像检索 / 目标识别
    通过匹配图像特征实现物体识别、实例检索或匹配同一目标的不同拍摄图像。
 
@@ -297,7 +295,6 @@ $ℒ(q,R)_\text{InfoNCE} = -log \frac{exp(q ⋅ r_+ / τ)}{ \sum_{i=0}^{N} exp(q
 1. 区域／模板匹配（Area‑based 或 Template matching）
 
 -   直接基于图像灰度／像素块相似度（如交叉相关或 SAD）滑动匹配。
-
 -   适合小尺度、刚性、重叠多的图像，但对旋转、尺度、遮挡、光照变化不鲁棒。
 
 2. 基于特征的匹配（Feature‑based Matching）
@@ -305,13 +302,11 @@ $ℒ(q,R)_\text{InfoNCE} = -log \frac{exp(q ⋅ r_+ / τ)}{ \sum_{i=0}^{N} exp(q
     1. 特征检测（Feature Detection）
 
         - 手工设计（handcrafted）：Harris、DoG／LoG、MSER、FAST、Hessian-Affine 等经典算子。
-
         - 学习型（learning-based）：通过深度网络训练检测更加稳健的关键点或局部兴趣点。
 
     2. 特征描述（Feature Description）
 
         - 手工描述子：如 SIFT（128‑维）、SURF、ORB（FAST+BRIEF）等，针对旋转、尺度变化设计的鲁棒描述子。
-
         - 学习型描述子：如使用 CNN、Siamese 网络、Patch‑based 方法，或 end‑to‑end 联合学习 detector+descriptor。
 
     3. 特征匹配与几何筛除
@@ -321,7 +316,6 @@ $ℒ(q,R)_\text{InfoNCE} = -log \frac{exp(q ⋅ r_+ / τ)}{ \sum_{i=0}^{N} exp(q
 3. 深度学习端到端方法（Detector‑free 或 中端／末端学习匹配）
 
 -   Detector‑free 模型：直接从输入图像对中学习密集或半稠密对应关系（如 LoFTR、SuperGlue 等 Transformer 或 CNN‑based 方法）。
-
 -   联合模块（end‑to‑end matcher）：整合检测、描述、匹配、几何估计为统一可学习模块，用于姿态估计、单阶段重建等。
 
 #### SIFT（Scale-Invariant Feature Transform）
@@ -341,8 +335,8 @@ SIFT 是一种经典的图像局部特征提取算法，由 David Lowe 在 1999 
 
 1. 网络
    使用同一个卷积 (VGG Net) 编码兴趣点和描述符，并分别通过 PixelShuffle 和 Bi-Cubic 插值上采样到原始尺寸。
-
 2. 损失函数
+
     - 兴趣点：交叉熵
     - 描述符：使用余弦相似度，最小化相邻对应位置的距离、最大化其他距离，使用了加权项 $λ_d$ 帮助平衡由于负对应关系多于正对应关系而产生的不平衡
 

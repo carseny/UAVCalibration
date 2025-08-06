@@ -1,209 +1,60 @@
 from torch.utils.data import Dataset
 import numpy as np
 import cv2
-from PIL import Image
 
-import math
-from pathlib import Path
-from typing import Any
 from dataclasses import dataclass, field
-from datetime import datetime
-from functools import lru_cache
-
-Image.MAX_IMAGE_PIXELS = 1 << 32
-LARGE_IMAGE_CACHE_SIZE = 1
-
-
-@dataclass
-class SatelliteData:
-    dataset_path: Path
-    partition: str
-
-    mapname: str
-    LT_lat_map: float
-    LT_lon_map: float
-    RB_lat_map: float
-    RB_lon_map: float
-    region: str
-
-    bbox: tuple[float, float, float, float] = field(
-        init=False
-    )  # (west, south, east, north)
-    img_w: int = field(init=False)
-    img_h: int = field(init=False)
-
-    def __post_init__(self):
-        # Calculate the bounding box of the map region in WSEN order
-        self.bbox = (
-            min(self.LT_lon_map, self.RB_lon_map),
-            min(self.LT_lat_map, self.RB_lat_map),
-            max(self.LT_lon_map, self.RB_lon_map),
-            max(self.LT_lat_map, self.RB_lat_map),
-        )
-        # Read image's dimensions without loading the entire image into memory
-        with Image.open(self.image_path) as img:
-            self.img_w, self.img_h = img.size
-
-        west, south, east, north = self.bbox
-        # Check aspect ratio consistency
-        assert (
-            0.99 < (self.img_h / (north - south)) / (self.img_w / (east - west)) < 1.01
-        ), "Aspect ratio inconsistency"
-
-    __converters = {
-        "mapname": str,
-        "LT_lat_map": float,
-        "LT_lon_map": float,
-        "RB_lat_map": float,
-        "RB_lon_map": float,
-        "region": str,
-    }
-
-    @classmethod
-    def convert_dict(cls, row: dict[str, str]) -> dict[str, Any]:
-        return {
-            k: cls.__converters[k](v) if k in cls.__converters else v
-            for k, v in row.items()
-        }
-
-    @property
-    def image_path(self):
-        return str(self.dataset_path / self.partition / ("satellite" + self.mapname))
-
-    @staticmethod
-    @lru_cache(LARGE_IMAGE_CACHE_SIZE)
-    def load_large_image(image_path):
-        image = cv2.imread(image_path)
-        assert image is not None, f"Failed to load image {image_path}"
-        return image[..., ::-1]  # Convert BGR to RGB
-
-    @property
-    def image(self):
-        return self.load_large_image(self.image_path)
-
-    def lonlat2wh(self, lon, lat):
-        west, south, east, north = self.bbox
-        w = self.img_w * (lon - west) / (east - west)
-        h = self.img_h * (north - lat) / (north - south)
-        return w, h
 
 
 @dataclass
 class UAVData:
-    dataset_path: Path
-    partition: str
+    uav_image: np.ndarray
+    satellite_image: np.ndarray
+    # (west, south, east, north) in lat/lon coordinates
+    bbox: tuple[float, float, float, float] | None = None
 
-    num: int
-    filename: str
-    date: datetime
-    lat: float
-    lon: float
-    height: float
-    Omega: float
-    Kappa: float
-    Phi1: float
-    Phi2: float
+    calibration_mat: np.ndarray = field(default_factory=lambda: np.eye(3))
+    calibrated_shape: tuple[int, int] = field(init=False)  # (width, height)
 
-    focal_length: float = 0
-
-    pitch: float = field(init=False)
-    roll: float = field(init=False)
-    yaw: float = field(init=False)
-    img_w: int = field(init=False)
-    img_h: int = field(init=False)
+    longitude: float | None = None  # in degrees
+    latitude: float | None = None  # in degrees
+    height: float | None = None  # in meters
+    pitch: float | None = None  # in radians
+    roll: float | None = None  # in radians
+    yaw: float | None = None  # in radians
+    focal_length: float | None = None  # in pixels
 
     def __post_init__(self):
-        # Convert degrees to radians
-        self.pitch = math.radians(self.Omega)
-        self.roll = math.radians(self.Kappa)
-        self.yaw = math.radians(self.Phi1)
-        # Read image's dimensions without loading the entire image into memory
-        with Image.open(self.image_path) as img:
-            self.img_w, self.img_h = img.size
+        h, w, *_ = self.uav_image.shape
+        self.calibrated_shape = (w, h)
         # If focal length is not provided, set it to a reasonable default value
-        if self.focal_length == 0:
-            self.focal_length = max(self.img_w, self.img_h) * 1.5
+        if self.focal_length is None:
+            self.focal_length = max(h, w) * 1.5
 
-    __converters = {
-        "num": int,
-        "filename": str,
-        "date": datetime.fromisoformat,
-        "lat": float,
-        "lon": float,
-        "height": float,
-        "Omega": float,
-        "Kappa": float,
-        "Phi1": float,
-        "Phi2": float,
-    }
-
-    @classmethod
-    def convert_dict(cls, row: dict[str, str]) -> dict[str, Any]:
-        return {
-            k: cls.__converters[k](v) if k in cls.__converters else v
-            for k, v in row.items()
-        }
-
-    @property
-    def image_path(self):
-        return str(self.dataset_path / self.partition / "drone" / self.filename)
-
-    @property
-    def image(self):
-        image = cv2.imread(self.image_path)
-        assert image is not None, f"Failed to load image {self.filename}"
-        return image[..., ::-1]  # Convert BGR to RGB
-
-    @property
-    def cam_mat(self):
-        # 相机内参矩阵（简化）
-        K = np.array(
+    def apply_mat(self, H: np.ndarray):
+        # Update the calibration matrix
+        self.calibration_mat = H @ self.calibration_mat
+        # Calculate the calibrated shape
+        h, w, *_ = self.uav_image.shape
+        corner_src = np.array(
             [
-                [self.focal_length, 0, self.img_w // 2],
-                [0, self.focal_length, self.img_h // 2],
                 [0, 0, 1],
-            ],
-        )
-        return K
-
-    @property
-    def rot_mat(self):
-        # Rotation matrices
-        Rz = np.array(
-            [
-                [np.cos(self.yaw), -np.sin(self.yaw), 0],
-                [np.sin(self.yaw), np.cos(self.yaw), 0],
-                [0, 0, 1],
+                [w, 0, 1],
+                [w, h, 1],
+                [0, h, 1],
             ]
         )
-        Ry = np.array(
-            [
-                [np.cos(self.pitch), 0, np.sin(self.pitch)],
-                [0, 1, 0],
-                [-np.sin(self.pitch), 0, np.cos(self.pitch)],
-            ]
-        )
-        Rx = np.array(
-            [
-                [1, 0, 0],
-                [0, np.cos(self.roll), -np.sin(self.roll)],
-                [0, np.sin(self.roll), np.cos(self.roll)],
-            ]
-        )
-        # 旋转顺序待定
-        return Rz @ Ry @ Rx
+        corner_dst = corner_src @ self.calibration_mat.T
+        corner_dst = corner_dst[:, :2] / corner_dst[:, 2:3]
+        # Adjust the calibration matrix to make sure all coordinates are positive
+        coord_min = corner_dst.min(axis=0)
+        coord_max = corner_dst.max(axis=0)
+        self.calibrated_shape = tuple((coord_max - coord_min).astype(int))
+        self.calibration_mat[0:2, 2] -= coord_min
 
     @property
-    def perspect_mat(self):
-        K = self.cam_mat
-        R = self.rot_mat
-        return K @ R @ np.linalg.inv(K)
-
-    @property
-    def corrected_image(self):
-        return cv2.warpPerspective(
-            self.image, self.perspect_mat, (self.img_w, self.img_h)
-        )
+    def calibrated_image(self):
+        w, h = self.calibrated_shape
+        return cv2.warpPerspective(self.uav_image, self.calibration_mat, (w, h))
 
 
 class UAVDataset(Dataset[UAVData]): ...
