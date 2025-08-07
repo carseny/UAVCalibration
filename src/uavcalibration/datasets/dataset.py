@@ -21,13 +21,13 @@ class UAVData:
     pitch: float | None = None  # in radians
     roll: float | None = None  # in radians
     yaw: float | None = None  # in radians
-    focal_length: float | None = None  # in pixels
+    focal_length: float = 0  # in pixels
 
     def __post_init__(self):
         h, w, *_ = self.uav_image.shape
         self.calibrated_shape = (w, h)
         # If focal length is not provided, set it to a reasonable default value
-        if self.focal_length is None:
+        if self.focal_length == 0:
             self.focal_length = max(h, w) * 1.5
 
     def apply_mat(self, H: np.ndarray):
@@ -55,6 +55,14 @@ class UAVData:
     def calibrated_image(self):
         w, h = self.calibrated_shape
         return cv2.warpPerspective(self.uav_image, self.calibration_mat, (w, h))
+
+    @property
+    def calibration_mask(self):
+        w, h = self.calibrated_shape
+        mask = np.ones_like(self.uav_image)
+        mask = cv2.warpPerspective(mask, self.calibration_mat, (w, h))
+        mask = mask >= 0.5
+        return mask
 
 
 class UAVDataset(Dataset[UAVData]): ...

@@ -10,5 +10,20 @@ dependencies = [
     "lightglue @ file:///${PROJECT_ROOT}/thirdparty/lightglue",
     "opencv-python>=4.11.0.86",
     "pillow>=11.3.0",
+    "pyproj>=3.7.1",
+    "rasterio>=1.4.3",
     "torch>=2.4.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+[tool.uv.sources]
+# Custom source for PyTorch with CUDA 12.6
+torch = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
