@@ -1,11 +1,11 @@
-from .matching import *
+from dataclasses import dataclass
 
 from lightglue import viz2d
 import torch
 import numpy as np
 import cv2
 
-from dataclasses import dataclass
+from .matching import *
 
 __all__ = [
     "match_homography",

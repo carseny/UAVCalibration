@@ -1,8 +1,8 @@
-from .matching import *
-from .ransac import *
-
 from lightglue import viz2d
 import numpy as np
+
+from .matching import *
+from .ransac import *
 
 
 __all__ = [
@@ -63,4 +63,6 @@ def plot_matches(
         case _:
             viz2d.plot_images([image0, image1])
             color = viz2d.cm_RdGn(match_result.scores)
-            viz2d.plot_matches(match_result.kpts0, match_result.kpts1, color=color, lw=0.2)
+            viz2d.plot_matches(
+                match_result.kpts0, match_result.kpts1, color=color, lw=0.2
+            )

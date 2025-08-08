@@ -1,10 +1,10 @@
-from .matching import *
+from typing import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 import cv2
 
-from typing import Sequence
-from dataclasses import dataclass
+from .matching import *
 
 
 @dataclass

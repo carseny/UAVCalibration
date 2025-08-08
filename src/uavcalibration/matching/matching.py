@@ -1,10 +1,8 @@
-from ..types import ModelOutput
+from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
 import cv2
-
-from dataclasses import dataclass
-from enum import Enum
 
 __all__ = [
     "MatchingMethod",

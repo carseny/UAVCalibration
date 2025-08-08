@@ -1,12 +1,12 @@
-from .matching import *
+from typing import overload
+from dataclasses import dataclass
 
 from lightglue import LightGlue, SuperPoint, viz2d
 from lightglue.utils import rbd, numpy_image_to_torch
 import torch
 import numpy as np
 
-from typing import overload
-from dataclasses import dataclass
+from .matching import *
 
 torch.set_grad_enabled(False)
 
