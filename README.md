@@ -79,7 +79,7 @@ $$
 _这个图似乎画错了，一般是右手系，z 应向下_
 
 -   **偏航角$\psi$（Yaw）**：围绕 Z 轴（上下）旋转的角度
--   **俯仰角$(\theta)$（Pitch）**：围绕 Y 轴（左右）旋转的角度
+-   **俯仰角$\theta$（Pitch）**：围绕 Y 轴（左右）旋转的角度
 -   **翻滚角$\phi$（Roll）**：围绕 X 轴（前后）旋转的角度
 
 $$
@@ -390,3 +390,63 @@ SIFT 是一种经典的图像局部特征提取算法，由 David Lowe 在 1999 
 ### 卫星图处理
 
 UAV-VisLoc 数据集中，卫星图的像素比例尺似乎是与经纬度相对应的，这导致卫星图像看起来像是被压扁了，需要在纵向坐标时除以 cos(lat) 来纠正这种畸变。
+
+## 坐标计算
+
+### 坐标系统
+
+#### WGS84 (World Geodetic System)
+
+-   **经度 (λ)：** 角度值（-180° 到 +180°），以本初子午线为基准，向东为正（东经），向西为负（西经）。
+-   **纬度 (φ)：** 角度值（-90° 到 +90°），以赤道为基准，向北为正（北纬），向南为负（南纬）。
+-   **大地高 (h)：** 从 WGS84 椭球面沿法线方向向上的距离（单位：米）。高于椭球面为正，低于为负。
+
+#### UTM (通用横轴墨卡托坐标系统)
+
+它与全球纬度和经度不同之处在于，它将地球分为 60 个区域，并将每个区域投影到平面上作为其坐标的基准。
+
+可以获得局部地区最小失真的图像
+
+#### GeoTIFF 图像坐标系
+
+-   这是一个 **离散的、以像素为单位的坐标系** 。
+-   原点 `(0, 0)` 通常位于 **图像的左上角** 。
+-   `i` 轴（列索引）向右（东）方向递增。
+-   `j` 轴（行索引）向下（南）方向递增。
+-   坐标表示为 `(column, row)` 或 `(x_pixel, y_pixel)`，例如 `(100, 200)` 表示第 200 行、第 100 列（注意行号通常从上到下增加）。
+
+## 计算流
+
+```mermaid
+flowchart
+    raw_image --> raw_hw
+
+    focal_length --> cam_mat
+    raw_hw --> cam_mat
+
+    yaw --> rot_mat
+    pitch --> rot_mat
+    roll --> rot_mat
+
+    cam_mat --> rect_trans
+    rot_mat --> rect_trans
+
+    lonlat --> rect_crs_trans
+    height --> rect_crs_trans
+    cam_mat --> rect_crs_trans
+    rot_mat --> rect_crs_trans
+
+    rect_crs_trans --> get_sat{get_sat}
+    raw_hw --> get_sat
+    get_sat --> sat_image
+    get_sat --> sat_crs_trans
+
+    rect_trans --> rect_image
+    raw_image --> rect_image
+
+    rect_image --> cali_trans
+    sat_image --> cali_trans
+
+    sat_crs_trans --> crs_trans
+    cali_trans --> crs_trans
+```

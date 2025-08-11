@@ -53,13 +53,23 @@ class SatelliteInfo:
     def image_path(self):
         return str(self.dataset_path / self.partition / ("satellite" + self.mapname))
 
+    def contains(self, lon: float, lat: float) -> bool:
+        return (
+            self.LT_lon_map < lon < self.RB_lon_map
+            and self.RB_lat_map < lat < self.LT_lat_map
+        )
+
+    # # TODO: trans mat input?
+    # def image_area(
+    #     self, lon1: float, lat1: float, lon2: float, lat2: float
+    # ) -> tuple[np.ndarray, np.ndarray, str]:
     def image_area(
         self,
         center_lon: float,
         center_lat: float,
         side: float,  # meters
         resolution=1.0,  # meters per pixel
-    ):
+    ) -> tuple[np.ndarray, np.ndarray, str]:
         """
         读取卫星图像的局部区域并转换为米制坐标系
 
@@ -71,7 +81,7 @@ class SatelliteInfo:
             resolution: 输出分辨率 (米/像素)
 
         返回:
-            (裁切后的图像数组, 变换矩阵)
+            (image, transform_mat, crs)
         """
         utm_zone = int((center_lon + 180) / 6) + 1
         utm_epsg = 32600 + utm_zone  # 北半球
@@ -101,6 +111,7 @@ class SatelliteInfo:
 
             # 计算读取窗口
             window = rasterio.windows.from_bounds(*src_bounds, transform=src.transform)
+            src_transform = src.window_transform(window)
 
             # 读取数据
             data = src.read(window=window, boundless=True, fill_value=0)
@@ -118,17 +129,23 @@ class SatelliteInfo:
 
             # 执行重投影
             reprojected = np.zeros((data.shape[0], height, width), dtype=data.dtype)
-
             rasterio.warp.reproject(
                 source=data,
                 destination=reprojected,
-                src_transform=src.window_transform(window),
+                src_transform=src_transform,
                 src_crs=src.crs,
                 dst_transform=dst_transform,
                 dst_crs=dst_crs,
                 resampling=rasterio.warp.Resampling.bilinear,
             )
-            return np.moveaxis(reprojected, 0, -1)
+
+            transform = dst_transform * src_transform
+            assert isinstance(transform, rasterio.Affine)
+            return (
+                np.moveaxis(reprojected, 0, -1),
+                np.array(transform).reshape(3, 3),
+                src.crs,
+            )
 
 
 @dataclass
@@ -232,6 +249,11 @@ class VisLocDataset(UAVDataset):
             uav_info.resolution,
         )
 
+    def get_satellite_image(self, lon1, lat1, lon2, lat2):
+        for sate_info in self.satellite_infos.values():
+            if sate_info.contains(lon1, lat1) and sate_info.contains(lon2, lat2):
+                return sate_info.image_area(lon1, lat1, lon2, lat2)
+
     def read_folder(self, folder: Path):
         partition = folder.name
         with (folder / (partition + ".csv")).open("r") as file:
@@ -259,15 +281,18 @@ class VisLocDataset(UAVDataset):
 
     def __getitem__(self, index: int):
         uav_info = self.uav_infos[index]
+        uav_image = uav_info.image
+        satellite_image, satellite_transform, _ = self.get_satellite_area(uav_info)
         return UAVData(
-            uav_image=uav_info.image,
-            satellite_image=self.get_satellite_area(uav_info),
+            uav_image=uav_image,
+            satellite_image=satellite_image,
+            satellite_transform=satellite_transform,
             longitude=uav_info.lon,
             latitude=uav_info.lat,
             height=uav_info.height,
+            yaw=uav_info.yaw,
             pitch=uav_info.pitch,
             roll=uav_info.roll,
-            yaw=uav_info.yaw,
             focal_length=uav_info.focal_length,
         )
 
