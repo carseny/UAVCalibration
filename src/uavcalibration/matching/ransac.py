@@ -43,7 +43,7 @@ def match_homography(
         methed=MatchingMethod.HOMOGRAPHY,
         kpts0=m_kpts0,
         kpts1=m_kpts1,
-        scores=dist,
+        scores=np.exp(-dist/ransacReprojThreshold),
         kpts_src0=kpts0,
         kpts_src1=kpts1,
         mat=mat,
@@ -58,7 +58,9 @@ def plot_matches(
 ):
     viz2d.plot_images([image0, image1])
     color = viz2d.cm_RdGn(match_result.scores)
-    viz2d.plot_matches(match_result.kpts0, match_result.kpts1, color=color, lw=0.2)
+    viz2d.plot_matches(
+        match_result.kpts0, match_result.kpts1, color=color, lw=0.2, ps=2
+    )
 
     match match_result.methed:
         case MatchingMethod.HOMOGRAPHY:
@@ -76,5 +78,5 @@ def plot_homography(
     viz2d.plot_keypoints(
         [match_result.kpts_src0, match_result.kpts_src1],
         colors=color,
-        ps=10,
+        ps=4,
     )

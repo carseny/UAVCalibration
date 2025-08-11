@@ -64,5 +64,5 @@ def plot_matches(
             viz2d.plot_images([image0, image1])
             color = viz2d.cm_RdGn(match_result.scores)
             viz2d.plot_matches(
-                match_result.kpts0, match_result.kpts1, color=color, lw=0.2
+                match_result.kpts0, match_result.kpts1, color=color, lw=0.2, ps=2
             )

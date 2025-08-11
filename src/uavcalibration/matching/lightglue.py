@@ -165,7 +165,9 @@ def plot_matches(
 
     viz2d.plot_images([image0, image1])
     color = viz2d.cm_RdGn(match_result.matches.scores.cpu().numpy())
-    viz2d.plot_matches(match_result.kpts0, match_result.kpts1, color=color, lw=0.2)
+    viz2d.plot_matches(
+        match_result.kpts0, match_result.kpts1, color=color, lw=0.2, ps=2
+    )
     viz2d.add_text(0, f"Stop after {match_result.matches.stop} layers", fs=20)
 
     color0 = viz2d.cm_prune(match_result.matches.prune0.cpu().numpy())
@@ -174,5 +176,5 @@ def plot_matches(
     viz2d.plot_keypoints(
         [match_result.feats0.keypoints, match_result.feats1.keypoints],
         colors=[color0, color1],
-        ps=10,
+        ps=4,
     )
