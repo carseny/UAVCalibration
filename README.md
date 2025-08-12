@@ -36,6 +36,7 @@ Delete torch sources for pytorch with CPU inference.
 
 ```bash
 uv venv
+./.venv/scripts/activate
 uv pip install -e .
 ```
 
