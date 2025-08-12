@@ -43,7 +43,7 @@ def match_homography(
         methed=MatchingMethod.HOMOGRAPHY,
         kpts0=m_kpts0,
         kpts1=m_kpts1,
-        scores=np.exp(-dist/ransacReprojThreshold),
+        scores=np.exp(-dist / ransacReprojThreshold),
         kpts_src0=kpts0,
         kpts_src1=kpts1,
         mat=mat,
@@ -58,6 +58,7 @@ def plot_matches(
 ):
     viz2d.plot_images([image0, image1])
     color = viz2d.cm_RdGn(match_result.scores)
+    color = color.tolist()  # viz2d bug that not recognize ndarray
     viz2d.plot_matches(
         match_result.kpts0, match_result.kpts1, color=color, lw=0.2, ps=2
     )
