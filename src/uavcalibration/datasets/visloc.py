@@ -139,12 +139,10 @@ class SatelliteInfo:
                 resampling=rasterio.warp.Resampling.bilinear,
             )
 
-            transform = dst_transform * src_transform
-            assert isinstance(transform, rasterio.Affine)
             return (
                 np.moveaxis(reprojected, 0, -1),
-                np.array(transform).reshape(3, 3),
-                src.crs,
+                np.array(dst_transform).reshape(3, 3),
+                dst_crs,
             )
 
 
@@ -282,11 +280,14 @@ class VisLocDataset(UAVDataset):
     def __getitem__(self, index: int):
         uav_info = self.uav_infos[index]
         uav_image = uav_info.image
-        satellite_image, satellite_transform, _ = self.get_satellite_area(uav_info)
+        satellite_image, satellite_transform, satellite_crs = self.get_satellite_area(
+            uav_info
+        )
         return UAVData(
             uav_image=uav_image,
             satellite_image=satellite_image,
             satellite_transform=satellite_transform,
+            satellite_crs=satellite_crs,
             longitude=uav_info.lon,
             latitude=uav_info.lat,
             height=uav_info.height,

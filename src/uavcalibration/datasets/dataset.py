@@ -9,6 +9,7 @@ class UAVData:
     uav_image: np.ndarray
     satellite_image: np.ndarray
     satellite_transform: np.ndarray
+    satellite_crs: str
 
     longitude: float | None = None  # in degrees
     latitude: float | None = None  # in degrees
