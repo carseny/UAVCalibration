@@ -196,6 +196,22 @@ class CRSTransform:
         """inplace precede a transform beforehand"""
         self.mat @= transform
 
+    def apply(self, coords: np.ndarray):
+        """Apply the transform to a set of coordinates."""
+        if coords.ndim == 1:
+            coords = coords[None, :]
+        return cv2.perspectiveTransform(coords.reshape(-1, 1, 2), self.mat).reshape(
+            -1, 2
+        )
+
+    def apply_inverse(self, coords: np.ndarray):
+        """Apply the inverse of the transform to a set of coordinates."""
+        if coords.ndim == 1:
+            coords = coords[None, :]
+        return cv2.perspectiveTransform(
+            coords.reshape(-1, 1, 2), np.linalg.inv(self.mat)
+        ).reshape(-1, 2)
+
 
 class Transform(PixelTransform):
     """Consecutive pixel transform and crs transform"""
