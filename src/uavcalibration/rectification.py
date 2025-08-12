@@ -1,5 +1,4 @@
 import numpy as np
-import cv2
 from pyproj import Transformer
 
 from .types import *

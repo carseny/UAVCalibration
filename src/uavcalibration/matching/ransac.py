@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 from lightglue import viz2d
-import torch
 import numpy as np
 import cv2
 

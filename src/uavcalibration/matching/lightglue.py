@@ -2,7 +2,7 @@ from typing import overload
 from dataclasses import dataclass
 
 from lightglue import LightGlue, SuperPoint, viz2d
-from lightglue.utils import rbd, numpy_image_to_torch
+from lightglue.utils import numpy_image_to_torch
 import torch
 import numpy as np
 
