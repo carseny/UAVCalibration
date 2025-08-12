@@ -164,10 +164,21 @@ class CRSTransform:
         else:
             self.mat[0:2, 2] = crs_trans
 
+    def __str__(self) -> str:
+        attributes = (
+            f"  {k} = {v}"
+            for k, v in {
+                "crs": self.crs,
+                "resolution": self.resolution,
+                "mat": "\n        ".join(str(self.mat).split("\n")),
+            }.items()
+        )
+        return f"CRSTransform(\n{'\n'.join(attributes)}\n)"
+
     @property
     def resolution(self) -> float:
         """Pixel resolution (meters per pixel)"""
-        corner = np.array([[0, 0], [1, 1]],np.float64)
+        corner = np.array([[0, 0], [1, 1]], np.float64)
 
         diagonal = ((corner[0] - corner[1]) ** 2).sum()  # diagonal pixels
 

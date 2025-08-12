@@ -11,8 +11,8 @@ class UAVData:
     satellite_transform: np.ndarray
     satellite_crs: str
 
-    longitude: float | None = None  # in degrees
-    latitude: float | None = None  # in degrees
+    longitude: float  # in degrees
+    latitude: float  # in degrees
     height: float | None = None  # in meters
     yaw: float | None = None  # in radians
     pitch: float | None = None  # in radians

@@ -1,6 +1,87 @@
-## 已有的研究
+# UAVCalibration: 基于反投影与图形匹配的航拍定位方案
 
-### 数据集
+## Requirements
+
+-   [uv](https://docs.astral.sh/uv/getting-started/installation/): optional but highly recommend
+-   [Git](https://git-scm.com/downloads): optional
+-   [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit) ~12.6: required for GPU inference
+-   [UAV-VisLoc Dataset](https://github.com/IntelliSensing/UAV-VisLoc): required for demo script
+
+## Installation
+
+1. Clone repository
+
+```bash
+# clone repository with submodules
+git clone --recurse-submodules https://github.com/carseny/UAVCalibration.git
+cd UAVCalibration
+```
+
+2. Change the pytorch source to your own cuda version at `./pyproject.toml`
+
+```toml
+[tool.uv.sources]
+# Custom source for PyTorch with CUDA 12.6
+torch = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+```
+
+Delete torch sources for pytorch with CPU inference.
+
+3. Create virtual environment and install the project with all requirements.
+
+```bash
+uv venv
+uv pip install -e .
+```
+
+4. Download datasets and put them into `./datasets`
+
+5. Run demonstration scripts in `./scripts`
+
+## Compute Flow Chart
+
+```mermaid
+flowchart
+    raw_image --> raw_hw
+
+    focal_length --> cam_mat
+    raw_hw --> cam_mat
+
+    yaw --> rot_mat
+    pitch --> rot_mat
+    roll --> rot_mat
+
+    cam_mat --> rect_trans
+    rot_mat --> rect_trans
+
+    lonlat --> rect_crs_trans
+    height --> rect_crs_trans
+    cam_mat --> rect_crs_trans
+    rot_mat --> rect_crs_trans
+
+    rect_crs_trans --> get_sat{get_sat}
+    raw_hw --> get_sat
+    get_sat --> sat_image
+    get_sat --> sat_crs_trans
+
+    rect_trans --> rect_image
+    raw_image --> rect_image
+
+    rect_image --> cali_trans
+    sat_image --> cali_trans
+
+    sat_crs_trans --> crs_trans
+    cali_trans --> crs_trans
+```
+
+# 相关的研究
+
+## 数据集
 
 1. [UAV-VisLoc：无人机视觉定位的大规模数据集](https://github.com/IntelliSensing/UAV-VisLoc)
 
@@ -380,16 +461,28 @@ SIFT 是一种经典的图像局部特征提取算法，由 David Lowe 在 1999 
 -   使用 CNN 与 U-Net 结构提取图像特征
 -   使用 self/cross attention 进行图像间信息提取，其中使用线性的注意力算法
 
-### TODO
+#### Lightglue: Local feature matching at light speed
 
--   LF-Net: Learning Local Features from Images
--   A deep learning framework for unsupervised affine and deformable image registration.
--   Lightglue: Local feature matching at light speed
--   Geo-Localization of Street Views with Aerial Image Databases
+SuperGlue 的跟进研究，主要优化了性能，精度提升较小
 
-### 卫星图处理
+![lightglue Architecture](https://ar5iv.labs.arxiv.org/html/2306.13643/assets/x4.png)
 
-UAV-VisLoc 数据集中，卫星图的像素比例尺似乎是与经纬度相对应的，这导致卫星图像看起来像是被压扁了，需要在纵向坐标时除以 cos(lat) 来纠正这种畸变。
+##### Adaptive depth and width
+
+-   **Early Exit**
+-   **Point pruning**: 随着 LightGlue 聚合上下文，它可以早期发现某些点是不可匹配的，并因此将它们从后续层中排除。其他非重复点在后期层中被排除。这减少了推理时间和搜索空间，最终快速找到好的匹配。
+
+##### 与 SuperGlue 对比
+
+-   **位置编码**：SuperGlue 使用 MLP 编码绝对点位置，并在早期与描述子融合，模型在整个层中容易忘记这种位置信息。相反，LightGlue 依赖于一种相对编码，这种编码在不同图像之间更容易比较，并在每个自注意力单元中添加。这使得更容易利用位置信息并提高了深层层的准确性。
+-   **预测头**：SuperGlue 通过使用 Sinkhorn 算法解决可微最优传输问题来预测分配。它包括许多行和列归一化的迭代，这在计算和内存方面都很昂贵。SuperGlue 添加了一个垃圾桶来拒绝不可匹配的点。我们发现垃圾桶将所有点的相似度得分纠缠在一起，从而导致次优的训练动态。LightGlue 将相似性和可匹配性分开，这些更易于预测。这也产生了更干净的梯度。
+-   **深度监督**：由于 Sinkhorn 的计算成本高昂，SuperGlue 无法在每一层后进行预测，只能在最后一层进行监督。LightGlue 较轻的头部使其能够在每一层进行分配预测并进行监督，这加快了收敛速度，并允许在任何一层后退出推理，这是 LightGlue 效率提升的关键。
+
+#### 算法比较
+
+![benchmark](https://ar5iv.labs.arxiv.org/html/2306.13643/assets/x1.png)
+
+**\*LightGlue matches sparse features faster and better** than existing approaches like SuperGlue. Its adaptive stopping mechanism gives a fine-grained control over the speed vs. accuracy trade-off. Our final, optimized model ⋆ delivers an accuracy closer to the dense matcher LoFTR at an 8× higher speed, here in typical outdoor conditions.\*
 
 ## 坐标计算
 
@@ -414,39 +507,3 @@ UAV-VisLoc 数据集中，卫星图的像素比例尺似乎是与经纬度相对
 -   `i` 轴（列索引）向右（东）方向递增。
 -   `j` 轴（行索引）向下（南）方向递增。
 -   坐标表示为 `(column, row)` 或 `(x_pixel, y_pixel)`，例如 `(100, 200)` 表示第 200 行、第 100 列（注意行号通常从上到下增加）。
-
-## 计算流
-
-```mermaid
-flowchart
-    raw_image --> raw_hw
-
-    focal_length --> cam_mat
-    raw_hw --> cam_mat
-
-    yaw --> rot_mat
-    pitch --> rot_mat
-    roll --> rot_mat
-
-    cam_mat --> rect_trans
-    rot_mat --> rect_trans
-
-    lonlat --> rect_crs_trans
-    height --> rect_crs_trans
-    cam_mat --> rect_crs_trans
-    rot_mat --> rect_crs_trans
-
-    rect_crs_trans --> get_sat{get_sat}
-    raw_hw --> get_sat
-    get_sat --> sat_image
-    get_sat --> sat_crs_trans
-
-    rect_trans --> rect_image
-    raw_image --> rect_image
-
-    rect_image --> cali_trans
-    sat_image --> cali_trans
-
-    sat_crs_trans --> crs_trans
-    cali_trans --> crs_trans
-```
