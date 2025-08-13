@@ -10,6 +10,7 @@ Control keys
 """
 
 from dataclasses import asdict
+from pathlib import Path
 
 from pyproj import Transformer
 import cv2
@@ -20,6 +21,9 @@ from lightglue import viz2d
 from uavcalibration.calibration import Calibration
 from uavcalibration.datasets import VisLocDataset
 from uavcalibration.transform import *
+
+project_root = Path(__file__).parent.parent
+dataset = VisLocDataset(project_root / "datasets" / "UAV_VisLoc_example")
 
 # 全局变量
 # 数据位置
