@@ -22,21 +22,24 @@ Download UAV_VisLoc_example or other datasets and place them into `./datasets`
 
 ### Set up environment with uv (recommend)
 
-Change the pytorch source to your own cuda version in `./pyproject.toml` at `[[tool.uv.index]].url`. e.g. `https://download.pytorch.org/whl/cpu` for pytorch with CPU inference.
+Create virtual environment and install this repo with all requirements. Please change the index url to pytorch source of your cuda version. e.g. `https://download.pytorch.org/whl/cpu` for pytorch with CPU inference.
+
+```bash
+uv venv
+uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cu126
+```
+
+(Optional) Write the pytorch source of your cuda version to `pyproject.toml`. 
 
 ```toml
-# Custom source for PyTorch with CUDA 12.6
 [[tool.uv.index]]
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cu126"
 explicit = true
-```
 
-Create virtual environment and install this repo with all requirements.
-
-```bash
-uv venv
-uv pip install -e .
+[tool.uv.sources]
+torch = [{ index = "pytorch" }]
+torchvision = [{ index = "pytorch" }]
 ```
 
 Run demonstration scripts in `./scripts`
@@ -47,18 +50,12 @@ uv run ./scripts/demo.py
 
 ### Set up environment without uv
 
-Create virtual environment and install this repo with all requirements. (pytorch cpu version)
+Create virtual environment and install this repo with all requirements. Please change the index url to pytorch source of your cuda version. e.g. `https://download.pytorch.org/whl/cpu` for pytorch with CPU inference.
 
 ```bash
 python -m venv .venv
 ./.venv/scripts/activate
-pip install -e .
-```
-
-(Optional) Delete torch cpu version and install pytorch with your cuda version.
-```bash
-pip uninstall torch torchvision -y
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip install -e . --extra-index-url https://download.pytorch.org/whl/cu126
 ```
 
 Run demonstration scripts in `./scripts`
