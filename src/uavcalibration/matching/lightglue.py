@@ -1,5 +1,6 @@
 from typing import overload
 from dataclasses import dataclass
+import warnings
 
 from lightglue import LightGlue, SuperPoint, viz2d
 from lightglue.utils import numpy_image_to_torch
@@ -10,7 +11,10 @@ from .matching import *
 
 torch.set_grad_enabled(False)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 'mps', 'cpu'
+device = torch.device("cuda")
+if not torch.cuda.is_available():
+    warnings.warn("CUDA is not available, using cpu inference")
+    device = torch.device("cpu")
 
 extractor = SuperPoint().eval().to(device)  # load the extractor
 matcher = LightGlue(features="superpoint").eval().to(device)
