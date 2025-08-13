@@ -1,4 +1,4 @@
-# UAVCalibration: 基于反投影与图形匹配的航拍定位方案
+# UAVCalibration: 基于反投影与卫星图像匹配的航拍定位方案
 
 ## Requirements
 
@@ -7,17 +7,18 @@
 -   [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit) ~12.6: required for GPU inference
 -   [UAV-VisLoc Dataset](https://github.com/IntelliSensing/UAV-VisLoc): required for demo script
 
-## Installation
+## Installation and demo
 
-1. Clone repository
+Clone repository
 
 ```bash
 # clone repository with submodules
-git clone --recurse-submodules https://github.com/carseny/UAVCalibration.git
-cd UAVCalibration
+git clone --recurse-submodules https://github.com/carseny/UAVCalibration.git && cd UAVCalibration
 ```
 
-2. Change the pytorch source to your own cuda version at `./pyproject.toml`
+Download UAV_VisLoc_example or other datasets and place them into `./datasets`
+
+Change the pytorch source to your own cuda version at `./pyproject.toml`. Delete custom torch sources for pytorch with CPU inference.
 
 ```toml
 [tool.uv.sources]
@@ -30,19 +31,51 @@ torchvision = [
 ]
 ```
 
-Delete torch sources for pytorch with CPU inference.
-
-3. Create virtual environment and install the project with all requirements.
+Create virtual environment and install the project with all requirements.
 
 ```bash
 uv venv
-./.venv/scripts/activate
 uv pip install -e .
 ```
 
-4. Download datasets and put them into `./datasets`
+or without uv:
 
-5. Run demonstration scripts in `./scripts`
+```bash
+python -m venv .venv
+./.venv/scripts/activate
+pip install -e .
+```
+
+Run demonstration scripts in `./scripts`
+
+```bash
+uv run ./scripts/demo.py
+```
+
+or without uv:
+
+```bash
+./.venv/scripts/activate
+python ./scripts/demo.py
+```
+
+## Scripts
+
+### Interactive Demonstration Using UAV_VisLoc_example Dataset
+
+`./scripts/demo.py`
+
+Moving mouse pointer on one image and get corresponding point on the other.
+
+Control keys:
+
+-   Esc: Exit
+-   A: Previous image
+-   W: 10th Previous image
+-   D: Next image
+-   S: 10th Next image
+
+![Interactive Demonstration](./assets/demo_UAV-VisLoc.jpg)
 
 ## Compute Flow Chart
 
@@ -73,11 +106,12 @@ flowchart
     rect_trans --> rect_image
     raw_image --> rect_image
 
-    rect_image --> cali_trans
-    sat_image --> cali_trans
+    rect_image --> match_trans
+    sat_image --> match_trans
 
-    sat_crs_trans --> crs_trans
-    cali_trans --> crs_trans
+    sat_crs_trans --> crs_trans["crs_trans
+    (img_xy -> crs_coord)"]
+    match_trans --> crs_trans
 ```
 
 # 相关的研究
@@ -99,6 +133,30 @@ flowchart
 
     - 提出了一种基于视觉的无人机自定位方案，可以比对无人机拍摄图像与卫星图像中的特征来估计无人机的位置。
     - 数据集没公开需要申请
+
+## 坐标计算
+
+### 坐标系统
+
+#### WGS84 (World Geodetic System)
+
+-   **经度 (λ)：** 角度值（-180° 到 +180°），以本初子午线为基准，向东为正（东经），向西为负（西经）。
+-   **纬度 (φ)：** 角度值（-90° 到 +90°），以赤道为基准，向北为正（北纬），向南为负（南纬）。
+-   **大地高 (h)：** 从 WGS84 椭球面沿法线方向向上的距离（单位：米）。高于椭球面为正，低于为负。
+
+#### UTM (通用横轴墨卡托坐标系统)
+
+它与全球纬度和经度不同之处在于，它将地球分为 60 个区域，并将每个区域投影到平面上作为其坐标的基准。
+
+可以获得局部地区最小失真的图像
+
+#### GeoTIFF 图像坐标系
+
+-   这是一个 **离散的、以像素为单位的坐标系** 。
+-   原点 `(0, 0)` 通常位于 **图像的左上角** 。
+-   `i` 轴（列索引）向右（东）方向递增。
+-   `j` 轴（行索引）向下（南）方向递增。
+-   坐标表示为 `(column, row)` 或 `(x_pixel, y_pixel)`，例如 `(100, 200)` 表示第 200 行、第 100 列（注意行号通常从上到下增加）。
 
 ## 反投影
 
@@ -484,27 +542,3 @@ SuperGlue 的跟进研究，主要优化了性能，精度提升较小
 ![benchmark](https://ar5iv.labs.arxiv.org/html/2306.13643/assets/x1.png)
 
 **\*LightGlue matches sparse features faster and better** than existing approaches like SuperGlue. Its adaptive stopping mechanism gives a fine-grained control over the speed vs. accuracy trade-off. Our final, optimized model ⋆ delivers an accuracy closer to the dense matcher LoFTR at an 8× higher speed, here in typical outdoor conditions.\*
-
-## 坐标计算
-
-### 坐标系统
-
-#### WGS84 (World Geodetic System)
-
--   **经度 (λ)：** 角度值（-180° 到 +180°），以本初子午线为基准，向东为正（东经），向西为负（西经）。
--   **纬度 (φ)：** 角度值（-90° 到 +90°），以赤道为基准，向北为正（北纬），向南为负（南纬）。
--   **大地高 (h)：** 从 WGS84 椭球面沿法线方向向上的距离（单位：米）。高于椭球面为正，低于为负。
-
-#### UTM (通用横轴墨卡托坐标系统)
-
-它与全球纬度和经度不同之处在于，它将地球分为 60 个区域，并将每个区域投影到平面上作为其坐标的基准。
-
-可以获得局部地区最小失真的图像
-
-#### GeoTIFF 图像坐标系
-
--   这是一个 **离散的、以像素为单位的坐标系** 。
--   原点 `(0, 0)` 通常位于 **图像的左上角** 。
--   `i` 轴（列索引）向右（东）方向递增。
--   `j` 轴（行索引）向下（南）方向递增。
--   坐标表示为 `(column, row)` 或 `(x_pixel, y_pixel)`，例如 `(100, 200)` 表示第 200 行、第 100 列（注意行号通常从上到下增加）。
