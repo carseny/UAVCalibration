@@ -15,8 +15,6 @@ from pathlib import Path
 from pyproj import Transformer
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-from lightglue import viz2d
 
 from uavcalibration.calibration import Calibration
 from uavcalibration.datasets import VisLocDataset
