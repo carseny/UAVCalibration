@@ -1,9 +1,9 @@
 import math
 import aiohttp
 import asyncio
-from warnings import warn
 from enum import Enum
 from functools import partial
+from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
@@ -23,26 +23,38 @@ class SourceType(Enum):
 
 
 class TiledMap(Map):
-    def __init__(self, url: str, max_concurrent=10, tile_size=256) -> None:
+    def __init__(
+        self, url: str, max_concurrent=10, tile_size=256, zmin=0, zmax=19
+    ) -> None:
         super().__init__()
-        self.url = url
-        self.tile_size = tile_size
         self.semaphore = asyncio.Semaphore(max_concurrent)
+        self.tile_size = tile_size
+        self.zmin = zmin
+        self.zmax = zmax
         self.session = None
-        if self.url.startswith("file://"):
+
+        url = url.replace("\\", "/")
+        base_index = url.find("/", 0, url.find("{"))
+        base_url, file_url = url[:base_index], url[base_index:]
+        if url.startswith("file://"):
             self.type = SourceType.FILE
             self.url = url[len("file://") :]
+        elif (path := Path(base_url)).exists():
+            self.type = SourceType.FILE
+            self.url = path.absolute().__str__() + file_url
         else:
             self.type = SourceType.WEB
+            self.url = url
 
-    async def connect(self, headers: dict | None = None):
+    async def connect(self, **kwargs):
         """Connect session"""
-        headers_ = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        if headers is not None:
-            headers_.update(headers)
+        kwargs.setdefault(
+            "headers", {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        kwargs.setdefault("trust_env", True)  # use system proxy
         if self.type is SourceType.WEB:
             if self.session is None or self.session.closed:
-                self.session = aiohttp.ClientSession(headers=headers_)
+                self.session = aiohttp.ClientSession(**kwargs)
                 self.session = await self.session.__aenter__()
 
     async def close(self):
@@ -64,6 +76,7 @@ class TiledMap(Map):
         resolution: float = 1,
     ):
         zoom = math.ceil(math.log(MAP_SIZE / resolution))
+        zoom = min(max(zoom, self.zmin), self.zmax)
         # transform bounds to web mercator
         xx, yy = np.array(bounds).reshape(-1, 2).T
         to_merc = Transformer.from_crs(crs, "EPSG:3857", always_xy=True)
@@ -78,8 +91,6 @@ class TiledMap(Map):
         height, width = (xy_max - xy_min + 1) * self.tile_size
         canvas = np.empty((width, height, 3), np.uint8)
         # download tiles
-        if self.session is None:
-            warn("Session has not created.")
         async with self as self:
             await self.download_tiles((x_min, y_min, x_max, y_max), zoom, dst=canvas)
 

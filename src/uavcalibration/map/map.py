@@ -9,6 +9,10 @@ from ..types import *
 
 
 class Map(ABC):
+    """
+    Abstract class of image map data
+    """
+
     @abstractmethod
     async def __aenter__(self) -> Self: ...
 
@@ -21,7 +25,23 @@ class Map(ABC):
         bounds: tuple[float, float, float, float],
         crs: CRS | str = "EPSG:4326",
         resolution: float = 10,  # meters per pixel
-    ) -> tuple[ImageMat, CRSTransform]: ...
+    ) -> tuple[ImageMat, CRSTransform]:
+        """
+        Asynchronous method to get a image of given bounds
+
+        Parameters
+        ----------
+        bounds
+            Bounding box (x_min, y_min, x_max, y_max)
+
+        Returns
+        -------
+        image: Ndarray
+            image array (h, w, 3 [rgb])
+        crs_transform: CRSTransform
+            perspective transform from pixel coordinate to crs coordinate
+        """
+        ...
 
     def __init__(self):
         self.runner = None
