@@ -29,7 +29,7 @@ uv venv
 uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cu126
 ```
 
-(Optional) Write the pytorch source of your cuda version to `pyproject.toml`. 
+(Optional) Write the pytorch source of your cuda version to `pyproject.toml`.
 
 ```toml
 [[tool.uv.index]]
@@ -144,7 +144,7 @@ flowchart
 
 ### 坐标系统
 
-#### WGS84 (World Geodetic System)
+#### WGS84 (World Geodetic System) EPSG:4326
 
 -   **经度 (λ)：** 角度值（-180° 到 +180°），以本初子午线为基准，向东为正（东经），向西为负（西经）。
 -   **纬度 (φ)：** 角度值（-90° 到 +90°），以赤道为基准，向北为正（北纬），向南为负（南纬）。
@@ -163,6 +163,41 @@ flowchart
 -   `i` 轴（列索引）向右（东）方向递增。
 -   `j` 轴（行索引）向下（南）方向递增。
 -   坐标表示为 `(column, row)` 或 `(x_pixel, y_pixel)`，例如 `(100, 200)` 表示第 200 行、第 100 列（注意行号通常从上到下增加）。
+
+#### Web Mercator EPSG:3857
+
+[wiki](https://en.wikipedia.org/wiki/Web_Mercator_projection)
+Web 墨卡托是墨卡托投影的一种微小变体，主要用于基于 Web 的地图程序。
+
+坐标为 (x,y,z)
+
+-   x,y: 与经度、纬度对应。单位是米，范围[-20037508.342789244, +20037508.342789244]
+-   z: 缩放等级，>= 0
+
+![Web Mercator](https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Web_maps_Mercator_projection_SW.jpg/960px-Web_maps_Mercator_projection_SW.jpg)
+_Web 墨卡托投影在全局尺度上几乎与被裁剪到约 85°N 至 85°S 的墨卡托投影无法区分_
+
+### 瓦片地图 Tiled Web Map
+
+[wiki](https://en.wikipedia.org/wiki/Tiled_web_map)
+
+![Tiled Web Map](https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/XYZ_Tiles.png/500px-XYZ_Tiles.png)
+_XYZ 瓦片坐标号（图中为 zxy 顺序）_
+
+大多数瓦片地图遵循某些谷歌地图的约定：
+
+-   瓦片是 256x256 像素
+-   在最外层的缩放级别 0，整个世界可以在一个地图瓦片中渲染。
+-   每个缩放级别在两个维度上都翻倍，因此在放大时，单个瓦片会被替换为 4 个瓦片。这意味着大约有 22 个缩放级别足以满足大多数实际用途。
+-   使用 Web 墨卡托投影，纬度限制在约 ±85 度。
+
+#### 瓦片编号方案
+
+目前有三种主要的编号方案在使用：
+
+-   Google Maps / OpenStreetMap: (0 到 2 zoom -1, 0 到 2 zoom -1) 对于范围 (-180, +85.0511) - (+180, −85.0511)
+-   瓦片地图服务：(0 到 2 zoom -1，2 zoom -1 到 0) 对于范围 (-180, +85.0511) - (+180, −85.0511)。(即与前一个相同，但 Y 值翻转。)
+-   QuadTrees，由微软使用。
 
 ## 反投影
 

@@ -159,6 +159,7 @@ class CRSTransform:
                 self.mat[0:2, 2] = crs_trans.ravel()
             elif crs_trans.shape == (2, 3):
                 self.mat[0:2] = crs_trans
+                self.mat[2, 2] = 1
             else:
                 raise ValueError(f"Unsupport array shape: {crs_trans.shape}")
         else:
