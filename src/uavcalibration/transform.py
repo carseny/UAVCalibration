@@ -2,6 +2,7 @@ import numpy as np
 from numpy.typing import NDArray
 import cv2
 from pyproj import Transformer, Geod
+from affine import Affine
 
 from .types import *
 
@@ -143,28 +144,38 @@ class CRSTransform:
 
     def __init__(
         self,
-        crs_trans: "tuple[float, float] | NDArray[np.floating] | CRSTransform",
+        crs_trans: "tuple[float, float] | Affine | NDArray[np.floating] | CRSTransform",
         crs: str = "EPSG:4326",
     ):
-        self.mat = np.zeros((3, 3))
-        self.crs = crs
-
         if isinstance(crs_trans, CRSTransform):
-            self.mat[:] = crs_trans.mat
+            self.mat = np.empty((3, 3))
+            self.mat[...] = crs_trans.mat
             self.crs = crs_trans.crs
-        elif isinstance(crs_trans, np.ndarray):
-            if crs_trans.shape == (3, 3):
-                self.mat = crs_trans
-            elif crs_trans.size == 2:
-                self.mat[0:2, 2] = crs_trans.ravel()
-            elif crs_trans.shape == (2, 3):
-                self.mat[0:2] = crs_trans
-            else:
-                raise ValueError(f"Unsupport array shape: {crs_trans.shape}")
         else:
-            self.mat[0:2, 2] = crs_trans
+            self.mat = np.eye(3)
+            self.crs = crs
+            if isinstance(crs_trans, np.ndarray):
+                if crs_trans.shape == (3, 3):
+                    # homographic
+                    self.mat[...] = crs_trans
+                elif crs_trans.shape == (2, 3):
+                    # affine
+                    self.mat[0:2] = crs_trans
+                elif crs_trans.size == 2:
+                    # offset
+                    self.mat[0:2, 2] = crs_trans.ravel()
+                else:
+                    raise ValueError(f"Unsupport array shape: {crs_trans.shape}")
+            elif isinstance(crs_trans, Affine):
+                # affine
+                self.mat.reshape(9)[...] = crs_trans
+            elif len(crs_trans) == 2:
+                # offset
+                self.mat[0:2, 2] = crs_trans
+            else:
+                self.mat[...] = crs_trans
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         attributes = (
             f"  {k} = {v}"
             for k, v in {
@@ -223,6 +234,11 @@ class CRSTransform:
             coords.reshape(-1, 1, 2), np.linalg.inv(self.mat)
         ).reshape(-1, 2)
 
+    def bounds(self, w: int, h: int):
+        corner = np.array([[0, 0], [w, 0], [w, h], [0, h]], np.float64)
+        corner_crs = self.apply(corner)
+        return (*corner_crs.min(0), *corner_crs.max(0))
+
 
 class Transform(PixelTransform):
     """Consecutive pixel transform and crs transform"""
@@ -250,4 +266,6 @@ class Transform(PixelTransform):
 
     @property
     def combined(self):
-        return CRSTransform(self.crs.mat @ self.mat, self.crs.crs)
+        combined = CRSTransform(self.crs)
+        combined.precede(self.mat)
+        return combined

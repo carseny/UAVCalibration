@@ -15,17 +15,21 @@ from pathlib import Path
 from pyproj import Transformer
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-from lightglue import viz2d
 
 from uavcalibration.calibration import Calibration
-from uavcalibration.datasets import VisLocDataset
+from uavcalibration.datasets import *
+from uavcalibration.map import *
 from uavcalibration.transform import *
 
 project_root = Path(__file__).parent.parent
 dataset = VisLocDataset(project_root / "datasets" / "UAV_VisLoc_example")
+satellite_map: Map
+satellite_map = GeoTiffMap([i.image_path for i in dataset.satellite_infos.values()])
+# satellite_map = TiledMap(r"http://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}")
 
 # 全局变量
+uav_data: UAVData
+satellite_info = np.zeros((1, 1, 3), np.uint8), CRSTransform((0, 0))
 # 数据位置
 data_index = 0
 # 存储鼠标位置
@@ -36,16 +40,24 @@ lat = 0
 
 
 def calibrate():
-    calibration = Calibration(uav_data.uav_image)
+    global satellite_info
+    uav_image = uav_data.uav_image
+
+    calibration = Calibration(uav_image)
     calibration.coarse_calibrate(**asdict(uav_data))
-    src_shape = uav_data.uav_image.shape
+    src_shape = uav_image.shape
     calibration.transform.adjust_shape(src_shape=(src_shape[1], src_shape[0]))
-    calibration.fine_calibrate(
-        satellite_image=uav_data.satellite_image,
-        satellite_crs=CRSTransform(
-            uav_data.satellite_transform, uav_data.satellite_crs
-        ),
-    )
+
+    tmp_transform = calibration.transform.combined
+    h, w = calibration.uav_image.shape[:2]
+    with satellite_map:
+        satellite_info = satellite_map.get(
+            tmp_transform.bounds(h=h, w=w),
+            tmp_transform.crs,
+            resolution=tmp_transform.resolution,
+        )
+
+    calibration.fine_calibrate(*satellite_info)
     return calibration
 
 
@@ -109,9 +121,9 @@ cv2.setMouseCallback("UAV Image", uav_callback)
 cv2.setMouseCallback("Satellite Image", satellite_callback)
 
 while True:
-    # 在图像上绘制坐标（可选）
+    # 在图像上绘制坐标
     uav_image = uav_data.uav_image[..., ::-1].copy()
-    satellite_image = uav_data.satellite_image[..., ::-1].copy()
+    satellite_image = satellite_info[0][..., ::-1].copy()
 
     size = max(uav_image.shape[::2]) // 300
     color = (0, 255, 0)

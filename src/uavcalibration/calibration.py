@@ -1,26 +1,9 @@
 import numpy as np
 
 from .types import *
-from .graph import *
 from .transform import *
 from . import rectification as rect
 from .matching import *
-
-
-def match_transform(
-    image_src: ImageMat,
-    image_dst: ImageMat,
-    resolution: float,  # meters per pixel
-    tolerance=5.0,  # meters
-    *args,
-    **kwargs,
-) -> np.ndarray:
-    match_result = match_images(image_src, image_dst, *args, **kwargs)
-    threshold = tolerance / resolution  # tolerance threshold
-    homography_result = match_homography(
-        match_result.kpts0, match_result.kpts1, threshold
-    )
-    return homography_result.mat
 
 
 class Calibration:
@@ -53,8 +36,7 @@ class Calibration:
         rotate_mat: np.ndarray | None = None,  # xyz -> x'y'z'
         # resolution args
         height: float = 100,  # in meters
-        *args,
-        **kwargs,
+        **_,
     ):
         raw_shape: Shape = self.uav_image.shape[1], self.uav_image.shape[0]
 
@@ -75,6 +57,7 @@ class Calibration:
             src_shape=raw_shape,
             crs=crs_trans,
         )
+        # Adjust the transform and dst_shape to make sure all corners are inside
         self.transform.adjust_shape()
 
     def fine_calibrate(
@@ -82,17 +65,27 @@ class Calibration:
         # satellite args
         satellite_image: ImageMat,
         satellite_crs: CRSTransform,
+        tolerance=5.0,  # meters
+        # debug
+        plot=False,
         # match args
         *args,
         **kwargs,
     ):
-        mat = match_transform(
-            self.calibrated_image,
-            satellite_image,
-            resolution=self.transform.crs.resolution,
-            *args,
-            **kwargs,
+        image_src = self.calibrated_image
+        image_dst = satellite_image
+        # match image
+        match_result = match_images(image_src, image_dst, *args, **kwargs)
+        if plot:
+            plot_matches(match_result, image_src, image_dst)
+        # use ransac algorithm to remove outliers and fit homographic transform matrix
+        threshold = tolerance / self.transform.crs.resolution
+        homography_result = match_homography(
+            match_result.kpts0, match_result.kpts1, threshold
         )
-        self.transform.follow(mat)
+        if plot:
+            plot_matches(homography_result, image_src, image_dst)
+        # apply transform matrix
+        self.transform.follow(homography_result.mat)
         self.transform.dst_shape = satellite_image.shape[1], satellite_image.shape[0]
         self.transform.crs = satellite_crs

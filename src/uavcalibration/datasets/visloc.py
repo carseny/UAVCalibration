@@ -8,12 +8,6 @@ from datetime import datetime
 import numpy as np
 import cv2
 from PIL import Image
-from pyproj import Transformer
-import rasterio
-import rasterio.io
-import rasterio.windows
-import rasterio.warp
-from rasterio.coords import BoundingBox
 
 from .dataset import UAVDataset, UAVData
 
@@ -53,98 +47,6 @@ class SatelliteInfo:
     def image_path(self):
         return str(self.dataset_path / self.partition / ("satellite" + self.mapname))
 
-    def contains(self, lon: float, lat: float) -> bool:
-        return (
-            self.LT_lon_map < lon < self.RB_lon_map
-            and self.RB_lat_map < lat < self.LT_lat_map
-        )
-
-    # # TODO: trans mat input?
-    # def image_area(
-    #     self, lon1: float, lat1: float, lon2: float, lat2: float
-    # ) -> tuple[np.ndarray, np.ndarray, str]:
-    def image_area(
-        self,
-        center_lon: float,
-        center_lat: float,
-        side: float,  # meters
-        resolution=1.0,  # meters per pixel
-    ) -> tuple[np.ndarray, np.ndarray, str]:
-        """
-        读取卫星图像的局部区域并转换为米制坐标系
-
-        参数:
-            image_path: 卫星图像路径
-            center_lon: 区域中心经度
-            center_lat: 区域中心纬度
-            side: 正方形区域边长 (米)
-            resolution: 输出分辨率 (米/像素)
-
-        返回:
-            (image, transform_mat, crs)
-        """
-        utm_zone = int((center_lon + 180) / 6) + 1
-        utm_epsg = 32600 + utm_zone  # 北半球
-        if center_lat < 0:  # 南半球
-            utm_epsg += 100
-        dst_crs = f"EPSG:{utm_epsg}"
-
-        # 转换中心点到UTM坐标
-        to_utm = Transformer.from_crs("EPSG:4326", dst_crs, always_xy=True)
-        center_x, center_y = to_utm.transform(center_lon, center_lat)
-
-        # 计算目标区域边界
-        half_side = side / 2
-        utm_bounds = BoundingBox(
-            center_x - half_side,
-            center_y - half_side,
-            center_x + half_side,
-            center_y + half_side,
-        )
-
-        with rasterio.open(self.image_path) as src:
-            assert isinstance(src, rasterio.io.DatasetReader)
-            # 将UTM边界转换回源坐标系
-            src_bounds: BoundingBox = rasterio.warp.transform_bounds(
-                dst_crs, src.crs, *utm_bounds
-            )
-
-            # 计算读取窗口
-            window = rasterio.windows.from_bounds(*src_bounds, transform=src.transform)
-            src_transform = src.window_transform(window)
-
-            # 读取数据
-            data = src.read(window=window, boundless=True, fill_value=0)
-
-            # 准备重投影参数
-            height = width = int(side / resolution)
-            dst_transform = rasterio.Affine(
-                resolution,
-                0,
-                utm_bounds[0],
-                0,
-                -resolution,
-                utm_bounds[3],  # 注意Y方向取负
-            )
-
-            # 执行重投影
-            reprojected = np.zeros((data.shape[0], height, width), dtype=data.dtype)
-            rasterio.warp.reproject(
-                source=data,
-                destination=reprojected,
-                src_transform=src_transform,
-                src_crs=src.crs,
-                dst_transform=dst_transform,
-                dst_crs=dst_crs,
-                resampling=rasterio.warp.Resampling.bilinear,
-            )
-
-            return (
-                np.moveaxis(reprojected, 0, -1),
-                np.array(dst_transform).reshape(3, 3),
-                dst_crs,
-            )
-
 
 @dataclass
 class UAVInfo:
@@ -166,8 +68,6 @@ class UAVInfo:
     pitch: float = field(init=False)
     roll: float = field(init=False)
     yaw: float = field(init=False)
-    _img_w: int | None = field(default=None, init=False)
-    _img_h: int | None = field(default=None, init=False)
 
     def __post_init__(self):
         # Convert degrees to radians
@@ -202,56 +102,13 @@ class UAVInfo:
     @property
     def image(self):
         image = cv2.imread(self.image_path)
-        assert image is not None, f"Failed to load image {self.filename}"
-        self._img_h, self._img_w = image.shape[:2]
-        return image[..., ::-1]  # Convert BGR to RGB
-
-    def __read_image_meta(self):
-        # Read image's dimensions without loading the entire image into memory
-        with Image.open(self.image_path) as img:
-            self.img_w, self.img_h = img.size
-
-    @property
-    def image_h(self) -> int:
-        if self._img_h is None:
-            self.__read_image_meta()
-        assert isinstance(self._img_h, int)
-        return self._img_h
-
-    @property
-    def image_w(self) -> int:
-        if self._img_w is None:
-            self.__read_image_meta()
-        assert isinstance(self._img_w, int)
-        return self._img_w
-
-    @property
-    def resolution(self) -> float:
-        return self.height / self.focal_length
-
-    @property
-    def diagonal_pixel(self) -> float:
-        return (self.image_h**2 + self.image_w**2) ** 0.5
-
-    @property
-    def diagonal_meter(self) -> float:
-        return self.height / self.focal_length * self.diagonal_pixel
+        if image is None:
+            raise IOError(f"Failed to load image {self.filename}")
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
+        return image
 
 
 class VisLocDataset(UAVDataset):
-    def get_satellite_area(self, uav_info: UAVInfo):
-        return self.satellite_infos[uav_info.partition].image_area(
-            uav_info.lon,
-            uav_info.lat,
-            uav_info.diagonal_meter,
-            uav_info.resolution,
-        )
-
-    def get_satellite_image(self, lon1, lat1, lon2, lat2):
-        for sate_info in self.satellite_infos.values():
-            if sate_info.contains(lon1, lat1) and sate_info.contains(lon2, lat2):
-                return sate_info.image_area(lon1, lat1, lon2, lat2)
-
     def read_folder(self, folder: Path):
         partition = folder.name
         with (folder / (partition + ".csv")).open("r") as file:
@@ -279,15 +136,8 @@ class VisLocDataset(UAVDataset):
 
     def __getitem__(self, index: int):
         uav_info = self.uav_infos[index]
-        uav_image = uav_info.image
-        satellite_image, satellite_transform, satellite_crs = self.get_satellite_area(
-            uav_info
-        )
         return UAVData(
-            uav_image=uav_image,
-            satellite_image=satellite_image,
-            satellite_transform=satellite_transform,
-            satellite_crs=satellite_crs,
+            uav_image=uav_info.image,
             longitude=uav_info.lon,
             latitude=uav_info.lat,
             height=uav_info.height,
