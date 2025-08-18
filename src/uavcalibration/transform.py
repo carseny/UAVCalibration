@@ -234,6 +234,11 @@ class CRSTransform:
             coords.reshape(-1, 1, 2), np.linalg.inv(self.mat)
         ).reshape(-1, 2)
 
+    def bounds(self, w: int, h: int):
+        corner = np.array([[0, 0], [w, 0], [w, h], [0, h]], np.float64)
+        corner_crs = self.apply(corner)
+        return (*corner_crs.min(0), *corner_crs.max(0))
+
 
 class Transform(PixelTransform):
     """Consecutive pixel transform and crs transform"""

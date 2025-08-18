@@ -14,11 +14,16 @@ __all__ = ["GeoTiffMap"]
 
 
 class GeoTiffMap(Map):
-    def __init__(self, filepath: str | Path):
+    def __init__(self, filepath: str | Path | list[str | Path]):
+        super().__init__()
         self.files: list[Path] = []
         self.datasets: dict[Path, DatasetReader] = {}
         self.crs = None
-        self.add(filepath)
+        if isinstance(filepath, list):
+            for path in filepath:
+                self.add(path)
+        else:
+            self.add(filepath)
 
     def add(self, path: str | Path):
         path = Path(path)
