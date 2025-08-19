@@ -2,18 +2,20 @@ import math
 import aiohttp
 import asyncio
 from enum import Enum
-from functools import partial
 from pathlib import Path
+import logging
 
 import numpy as np
 from numpy.typing import NDArray
 from pyproj import Transformer
 import cv2
+from cachetools import LRUCache
 
 from .map import *
 
 __all__ = ["TiledMap"]
 
+LOGGER = logging.getLogger(__name__)
 MAP_SIZE = 2 * 20037508.342789244  # web mercator tiles side length (meters)
 
 
@@ -24,36 +26,44 @@ class SourceType(Enum):
 
 class TiledMap(Map):
     def __init__(
-        self, url: str, max_concurrent=10, tile_size=256, zmin=0, zmax=19
+        self,
+        url: str,
+        max_concurrent=10,
+        cache_size=128,
+        tile_size=256,
+        zmin=0,
+        zmax=19,
     ) -> None:
         super().__init__()
         self.semaphore = asyncio.Semaphore(max_concurrent)
+        self.cache: LRUCache[str, ImageMat] = LRUCache(cache_size)
         self.tile_size = tile_size
         self.zmin = zmin
         self.zmax = zmax
-        self.session = None
+        self.session: aiohttp.ClientSession | None = None
 
         url = url.replace("\\", "/")
         base_index = url.find("/", 0, url.find("{"))
         base_url, file_url = url[:base_index], url[base_index:]
         if url.startswith("file://"):
-            self.type = SourceType.FILE
+            self.src_type = SourceType.FILE
             self.url = url[len("file://") :]
         elif (path := Path(base_url)).exists():
-            self.type = SourceType.FILE
+            self.src_type = SourceType.FILE
             self.url = path.absolute().__str__() + file_url
         else:
-            self.type = SourceType.WEB
+            self.src_type = SourceType.WEB
             self.url = url
 
     async def connect(self, **kwargs):
         """Connect session"""
-        kwargs.setdefault(
-            "headers", {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        )
-        kwargs.setdefault("trust_env", True)  # use system proxy
-        if self.type is SourceType.WEB:
+        if self.src_type is SourceType.WEB:
             if self.session is None or self.session.closed:
+                kwargs.setdefault(
+                    "headers",
+                    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                )
+                kwargs.setdefault("trust_env", True)  # use system proxy
                 self.session = aiohttp.ClientSession(**kwargs)
                 self.session = await self.session.__aenter__()
 
@@ -166,8 +176,9 @@ class TiledMap(Map):
         )
         return mat
 
-    async def download_tiles(self, bbox, zoom, dst: NDArray[np.integer]):
-        x_min, y_min, x_max, y_max = bbox
+    async def download_tiles(self, bounds, zoom, dst: ImageMat) -> None:
+        """Download all tiles within a bounding box to dst array"""
+        x_min, y_min, x_max, y_max = bounds
         # download tiles
         tasks = []
         for x in range(x_min, x_max + 1):
@@ -183,50 +194,55 @@ class TiledMap(Map):
         await asyncio.gather(*tasks)
 
     async def download_tile(
-        self, zoom: int, x: int, y: int, dst: NDArray[np.integer] | None = None
-    ) -> NDArray[np.integer]:
+        self, zoom: int, x: int, y: int, dst: ImageMat | None = None
+    ) -> ImageMat:
+        url = self.url.format(z=zoom, x=x, y=y)
         async with self.semaphore:  # limit max concurrent
-            if dst is None:
-                dst = np.empty((self.tile_size, self.tile_size, 3), np.uint8)
-            url = self.url.format(z=zoom, x=x, y=y)
-
             try:
-                match self.type:
-                    case SourceType.WEB:
-                        await self.load_tile_web(url=url, dst=dst)
-                    case SourceType.FILE:
-                        await self.load_tile_file(url=url, dst=dst)
-                    case _:
-                        raise NotImplementedError(f"Unexpect source type: {self.type}")
+                img = await self.get_url(url=url)
             except Exception as e:
-                dst[...] = 255
-                put_text = partial(
-                    cv2.putText,
-                    img=dst,
+                img = np.empty((self.tile_size, self.tile_size, 3), np.uint8)
+                img[...] = 255
+                cv2.putText(
+                    img=img,
+                    text=f"No Image",
+                    org=(10, 100),
                     fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=0.002 * self.tile_size,
+                    fontScale=0.005 * self.tile_size,
                     color=(0, 0, 0),
-                    thickness=round(0.004 * self.tile_size),
+                    thickness=round(0.01 * self.tile_size),
                 )
-                put_text(text=f"Failed to load tile:", org=(10, 20))
-                put_text(text=f"({x},{y},{zoom})", org=(10, 60))
-                put_text(text=f"{e}", org=(10, 100))
-                raise e
-            return dst
+                LOGGER.warning(f"Failed to get tile ({x},{y},{zoom}): {e}")
+        if dst is not None:
+            dst[...] = img
+        return img
 
-    async def load_tile_web(self, url: str, dst: NDArray[np.integer]):
+    async def get_url(self, url: str):
+        """Read an image from url with cache (based on self source type)"""
+        if url not in self.cache:
+            match self.src_type:
+                case SourceType.WEB:
+                    # download from internet
+                    img_array = await self._get_web(url)
+                case SourceType.FILE:
+                    # read from disk
+                    img_array = await self._get_file(url)
+                case _:
+                    raise NotImplementedError(f"Unexpect source type: {self.src_type}")
+            self.cache[url] = img_array
+        return self.cache[url]
+
+    async def _get_web(self, url: str):
         assert self.session is not None, "Session has not created"
         async with self.session.get(url) as response:
             response.raise_for_status()
             data = await response.read()
             img_data = np.frombuffer(data, dtype=np.uint8)
-            img_array = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
-            img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB, dst=dst)
+            img_array = cv2.imdecode(img_data, cv2.IMREAD_COLOR_RGB)
             return img_array
 
-    async def load_tile_file(self, url: str, dst: NDArray[np.integer]):
-        img = await asyncio.to_thread(
-            cv2.imread, filename=url, flags=cv2.IMREAD_COLOR_RGB
-        )
-        dst[...] = img
-        return img
+    async def _get_file(self, url: str):
+        img_array = await asyncio.to_thread(cv2.imread, url, cv2.IMREAD_COLOR_RGB)
+        if img_array is None:
+            raise IOError(f"Failed to read file: {url}")
+        return img_array
