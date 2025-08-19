@@ -2,8 +2,6 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import Self
 
-from pyproj import CRS
-
 from ..transform import CRSTransform
 from ..types import *
 
