@@ -21,10 +21,7 @@ class Map(ABC):
 
     @abstractmethod
     async def get_async(
-        self,
-        bounds: tuple[float, float, float, float],
-        crs: CRS | str = "EPSG:4326",
-        resolution: float = 10,  # meters per pixel
+        self, bounds: tuple[float, float, float, float], crs: str, resolution: float
     ) -> tuple[ImageMat, CRSTransform]:
         """
         Asynchronous method to get a image of given bounds
@@ -33,6 +30,10 @@ class Map(ABC):
         ----------
         bounds
             Bounding box (x_min, y_min, x_max, y_max)
+        crs: str
+            CRS of bounds
+        resolution: float
+            CRS unit per pixel
 
         Returns
         -------

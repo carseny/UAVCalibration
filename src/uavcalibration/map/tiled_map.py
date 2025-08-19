@@ -82,15 +82,19 @@ class TiledMap(Map):
     async def get_async(
         self,
         bounds: tuple[float, float, float, float],
-        crs: CRS | str = "EPSG:4326",
-        resolution: float = 1,
+        crs: str = "EPSG:4326",
+        resolution: float = 1e-5,
     ):
-        zoom = math.ceil(math.log(MAP_SIZE / resolution))
-        zoom = min(max(zoom, self.zmin), self.zmax)
         # transform bounds to web mercator
         xx, yy = np.array(bounds).reshape(-1, 2).T
         to_merc = Transformer.from_crs(crs, "EPSG:3857", always_xy=True)
         merc_xy = to_merc.transform(xx, yy)
+        # calculate resolution and zoom
+        merc_resolution = (
+            (merc_xy[0][1] - merc_xy[0][0]) / (bounds[2] - bounds[0]) * resolution
+        )
+        zoom = math.ceil(math.log(MAP_SIZE / merc_resolution))
+        zoom = min(max(zoom, self.zmin), self.zmax)
         # transform web mercator to tile coordinates
         global_xy = self.merc2tile(*merc_xy, zoom=zoom).astype(np.int64)
         tile_xy, pixel_xy = np.divmod(global_xy, self.tile_size)
