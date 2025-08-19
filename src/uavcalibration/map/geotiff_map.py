@@ -4,7 +4,6 @@ import numpy as np
 import cv2
 import rasterio
 from rasterio.warp import reproject, Resampling, transform
-from rasterio.windows import from_bounds
 from rasterio.io import DatasetReader
 from rasterio.crs import CRS
 
