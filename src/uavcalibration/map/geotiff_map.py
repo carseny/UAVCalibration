@@ -4,7 +4,6 @@ import numpy as np
 import cv2
 import rasterio
 from rasterio.warp import reproject, Resampling, transform
-from rasterio.windows import from_bounds
 from rasterio.io import DatasetReader
 from rasterio.crs import CRS
 
@@ -53,8 +52,8 @@ class GeoTiffMap(Map):
     async def get_async(
         self,
         bounds: tuple[float, float, float, float],
-        crs: CRS | str = "EPSG:4326",
-        resolution: float = 10,
+        crs: str = "EPSG:4326",
+        resolution: float = 1e-5,
     ) -> tuple[ImageMat, CRSTransform]:
         target_crs = CRS.from_user_input(crs)
         # transform target bounds to dataset src bounds

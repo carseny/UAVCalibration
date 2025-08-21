@@ -7,6 +7,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "aiohttp>=3.12.15",
+  "cachetools>=6.1.0",
   "lightglue @ git+https://github.com/cvg/LightGlue.git",
   "opencv-python>=4.11.0.86",
   "pillow>=11.3.0",
