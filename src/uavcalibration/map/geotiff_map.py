@@ -34,15 +34,20 @@ class GeoTiffMap(Map):
             self.files.append(path.absolute())
 
     async def __aenter__(self) -> Self:
+        tasks: list[asyncio.Task] = []
         for file in self.files:
             if (dataset := self.datasets.get(file)) is None or dataset.closed:
-                dataset = rasterio.open(file)
-                if self.crs is None:
-                    self.crs = dataset.crs
-                elif not self.crs == dataset.crs:
-                    raise ValueError("CRS of all dataset should be same.")
-                self.datasets[file] = dataset
+                tasks.append(asyncio.Task(self._open_tiff(file)))
+        await asyncio.gather(*tasks)
         return self
+
+    async def _open_tiff(self, file: Path):
+        dataset = await asyncio.to_thread(lambda: rasterio.open(file))
+        if self.crs is None:
+            self.crs = dataset.crs
+        elif not self.crs == dataset.crs:
+            raise ValueError("CRS of all dataset should be same.")
+        self.datasets[file] = dataset
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         for dataset in self.datasets.values():
