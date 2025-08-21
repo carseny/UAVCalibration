@@ -91,14 +91,16 @@ class GeoTiffMap(Map):
 
         # create output array
         dst = np.zeros((dataset.count, height, width), dtype=np.uint8)
-        reproject(
-            source=rasterio.band(dataset, [i + 1 for i in range(dataset.count)]),
-            destination=dst,
-            src_transform=dataset.transform,
-            src_crs=dataset.crs,
-            dst_transform=dst_transform,
-            dst_crs=target_crs,
-            resampling=Resampling.bilinear,
+        await asyncio.to_thread(
+            lambda: reproject(
+                source=rasterio.band(dataset, [i + 1 for i in range(dataset.count)]),
+                destination=dst,
+                src_transform=dataset.transform,
+                src_crs=dataset.crs,
+                dst_transform=dst_transform,
+                dst_crs=target_crs,
+                resampling=Resampling.bilinear,
+            )
         )
         dst = np.moveaxis(dst, 0, -1)
 
