@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import cv2
 
-from .matching import *
+from .match import *
 
 
 @dataclass
@@ -35,7 +35,7 @@ def match_images(
     m_kpts0 = np.asarray([kpts0[m.queryIdx].pt for m in good_matches])
     m_kpts1 = np.asarray([kpts1[m.trainIdx].pt for m in good_matches])
     return SiftMatchResult(
-        methed=MatchingMethod.SIFT,
+        methed=MatchMethod.SIFT,
         kpts0=m_kpts0,
         kpts1=m_kpts1,
         scores=np.array([1 - 2**m.distance for m in good_matches]),

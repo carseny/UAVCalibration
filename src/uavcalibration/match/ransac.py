@@ -4,7 +4,7 @@ from lightglue import viz2d
 import numpy as np
 import cv2
 
-from .matching import *
+from .match import *
 
 __all__ = [
     "match_homography",
@@ -39,7 +39,7 @@ def match_homography(
     dist = np.linalg.norm(kpts_target - m_kpts1, axis=1)
 
     return HomographyOutput(
-        methed=MatchingMethod.HOMOGRAPHY,
+        methed=MatchMethod.HOMOGRAPHY,
         kpts0=m_kpts0,
         kpts1=m_kpts1,
         scores=np.exp(-dist / ransacReprojThreshold),
@@ -63,7 +63,7 @@ def plot_matches(
     )
 
     match match_result.methed:
-        case MatchingMethod.HOMOGRAPHY:
+        case MatchMethod.HOMOGRAPHY:
             plot_homography(match_result, image0, image1)
 
 

@@ -1,12 +1,12 @@
 from lightglue import viz2d
 import numpy as np
 
-from .matching import *
+from .match import *
 from .ransac import *
 
 
 __all__ = [
-    "MatchingMethod",
+    "MatchMethod",
     "MatchResult",
     "match_homography",
     "match_images",
@@ -19,7 +19,7 @@ def match_images(
     image_dst: np.ndarray,
     mask_src: np.ndarray | None = None,
     mask_dst: np.ndarray | None = None,
-    method: MatchingMethod = MatchingMethod.LIGHTGLUE,
+    method: MatchMethod = MatchMethod.LIGHTGLUE,
     **kwargs,
 ) -> MatchResult:
     if mask_src is None:
@@ -27,12 +27,12 @@ def match_images(
     if mask_dst is None:
         mask_dst = np.ones_like(image_src[..., 0])
     match method:
-        case MatchingMethod.SIFT:
+        case MatchMethod.SIFT:
             from . import sift
 
             return sift.match_images(image_src, image_dst, mask_src, mask_dst, **kwargs)
 
-        case MatchingMethod.LIGHTGLUE:
+        case MatchMethod.LIGHTGLUE:
             from . import lightglue
 
             return lightglue.match_images(image_src, image_dst, **kwargs)
@@ -50,12 +50,12 @@ def plot_matches(
         # case MatchingMethod.SIFT:
         #     from . import sift
 
-        case MatchingMethod.LIGHTGLUE:
+        case MatchMethod.LIGHTGLUE:
             from . import lightglue
 
             lightglue.plot_matches(match_result, image0, image1)
 
-        case MatchingMethod.HOMOGRAPHY:
+        case MatchMethod.HOMOGRAPHY:
             from . import ransac
 
             ransac.plot_matches(match_result, image0, image1)

@@ -2,11 +2,11 @@ import numpy as np
 
 from .types import *
 from .transform import *
-from . import rectification as rect
-from .matching import *
+from . import rectify as rect
+from .match import *
 
 
-class Calibration:
+class Calibrator:
     uav_image: ImageMat
     transform: Transform
 

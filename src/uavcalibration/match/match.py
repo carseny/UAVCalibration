@@ -4,12 +4,12 @@ from enum import Enum
 import numpy as np
 
 __all__ = [
-    "MatchingMethod",
+    "MatchMethod",
     "MatchResult",
 ]
 
 
-class MatchingMethod(Enum):
+class MatchMethod(Enum):
     SIFT = "sift"
     LIGHTGLUE = "lightglue"
 
@@ -18,7 +18,7 @@ class MatchingMethod(Enum):
 
 @dataclass
 class MatchResult:
-    methed: MatchingMethod
+    methed: MatchMethod
     kpts0: np.ndarray
     kpts1: np.ndarray
     scores: np.ndarray

@@ -7,7 +7,7 @@ from lightglue.utils import numpy_image_to_torch
 import torch
 import numpy as np
 
-from .matching import *
+from .match import *
 
 torch.set_grad_enabled(False)
 
@@ -150,7 +150,7 @@ def match_images(
     kpts0, kpts1, matches = feats0.keypoints, feats1.keypoints, matches01.matches
     m_kpts0, m_kpts1 = kpts0[matches[..., 0]], kpts1[matches[..., 1]]
     return LightGlueMatchResult(
-        methed=MatchingMethod.LIGHTGLUE,
+        methed=MatchMethod.LIGHTGLUE,
         kpts0=m_kpts0.cpu().numpy(),
         kpts1=m_kpts1.cpu().numpy(),
         scores=matches01.scores.cpu().numpy(),

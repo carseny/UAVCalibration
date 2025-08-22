@@ -16,7 +16,7 @@ from pyproj import Transformer
 import cv2
 import numpy as np
 
-from uavcalibration.calibration import Calibration
+from uavcalibration.calibrate import Calibrator
 from uavcalibration.datasets import *
 from uavcalibration.map import *
 from uavcalibration.transform import *
@@ -25,7 +25,7 @@ project_root = Path(__file__).parent.parent
 dataset = VisLocDataset(project_root / "datasets" / "UAV_VisLoc_example")
 satellite_map: Map
 satellite_map = GeoTiffMap([i.image_path for i in dataset.satellite_infos.values()])
-# satellite_map = TiledMap(r"http://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}")
+# satellite_map = TileMap(r"http://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}")
 
 # 全局变量
 uav_data: UAVData
@@ -43,7 +43,7 @@ def calibrate():
     global satellite_info
     uav_image = uav_data.uav_image
 
-    calibration = Calibration(uav_image)
+    calibration = Calibrator(uav_image)
     calibration.coarse_calibrate(**asdict(uav_data))
     src_shape = uav_image.shape
     calibration.transform.adjust_shape(src_shape=(src_shape[1], src_shape[0]))

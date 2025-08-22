@@ -13,7 +13,7 @@ from cachetools import LRUCache
 
 from .map import *
 
-__all__ = ["TiledMap"]
+__all__ = ["TileMap"]
 
 LOGGER = logging.getLogger(__name__)
 MAP_SIZE = 2 * 20037508.342789244  # web mercator tiles side length (meters)
@@ -24,7 +24,7 @@ class SourceType(Enum):
     FILE = "file"
 
 
-class TiledMap(Map):
+class TileMap(Map):
     def __init__(
         self,
         url: str,
@@ -134,8 +134,8 @@ class TiledMap(Map):
 
         Examples
         --------
-        >>> global_xy = tiled_map.merc2tile(*merc_xy, zoom)
-        >>> tile_xy, pixel_xy = np.divmod(global_xy, tiled_map.tile_size)
+        >>> global_xy = tile_map.merc2tile(*merc_xy, zoom)
+        >>> tile_xy, pixel_xy = np.divmod(global_xy, tile_map.tile_size)
         """
         xy1 = np.asarray((xx, yy, np.ones_like(xx)), np.float64)
         result = self.merc2tile_mat(zoom)[:2] @ xy1

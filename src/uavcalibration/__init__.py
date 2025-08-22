@@ -1,4 +1,4 @@
-from .calibration import Calibration
+from .calibrate import Calibrator
 from .datasets import *
 from .map import *
-from .matching import *
+from .match import *
