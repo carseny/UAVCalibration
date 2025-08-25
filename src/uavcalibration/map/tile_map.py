@@ -193,7 +193,8 @@ class TileMap(Map):
                 x_slice = slice(x_pos, x_pos + self.tile_size)
                 y_slice = slice(y_pos, y_pos + self.tile_size)
                 # create dowanload Coroutine
-                task = self.download_tile(zoom, x, y, dst=dst[y_slice, x_slice, :])
+                coro = self.download_tile(zoom, x, y, dst=dst[y_slice, x_slice, :])
+                task = asyncio.create_task(coro)
                 tasks.append(task)
         await asyncio.gather(*tasks)
 

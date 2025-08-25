@@ -34,15 +34,20 @@ class GeoTiffMap(Map):
             self.files.append(path.absolute())
 
     async def __aenter__(self) -> Self:
+        tasks: list[asyncio.Task] = []
         for file in self.files:
             if (dataset := self.datasets.get(file)) is None or dataset.closed:
-                dataset = rasterio.open(file)
-                if self.crs is None:
-                    self.crs = dataset.crs
-                elif not self.crs == dataset.crs:
-                    raise ValueError("CRS of all dataset should be same.")
-                self.datasets[file] = dataset
+                tasks.append(asyncio.Task(self._open_tiff(file)))
+        await asyncio.gather(*tasks)
         return self
+
+    async def _open_tiff(self, file: Path):
+        dataset = await asyncio.to_thread(lambda: rasterio.open(file))
+        if self.crs is None:
+            self.crs = dataset.crs
+        elif not self.crs == dataset.crs:
+            raise ValueError("CRS of all dataset should be same.")
+        self.datasets[file] = dataset
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         for dataset in self.datasets.values():
@@ -86,14 +91,16 @@ class GeoTiffMap(Map):
 
         # create output array
         dst = np.zeros((dataset.count, height, width), dtype=np.uint8)
-        reproject(
-            source=rasterio.band(dataset, [i + 1 for i in range(dataset.count)]),
-            destination=dst,
-            src_transform=dataset.transform,
-            src_crs=dataset.crs,
-            dst_transform=dst_transform,
-            dst_crs=target_crs,
-            resampling=Resampling.bilinear,
+        await asyncio.to_thread(
+            lambda: reproject(
+                source=rasterio.band(dataset, [i + 1 for i in range(dataset.count)]),
+                destination=dst,
+                src_transform=dataset.transform,
+                src_crs=dataset.crs,
+                dst_transform=dst_transform,
+                dst_crs=target_crs,
+                resampling=Resampling.bilinear,
+            )
         )
         dst = np.moveaxis(dst, 0, -1)
 
