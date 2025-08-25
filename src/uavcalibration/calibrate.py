@@ -88,13 +88,11 @@ class CalibrateCTX:
         self.uav_shape = self.uav_image.shape[1], self.uav_image.shape[0]
 
 
-class Calibrator(CalibrateCTX):
-    def __init__(self, map: Map, uav_data: UAVData):
-        super().__init__(uav_data)
-        self.map = map
-
-    async def calibrate(
+class Calibrator:
+    def __init__(
         self,
+        map: Map,
+        # ransac
         tolerance=5.0,  # meters
         # debug
         plot=False,
@@ -102,31 +100,43 @@ class Calibrator(CalibrateCTX):
         *args,
         **kwargs,
     ):
-        self.rect_image, self.uav_transform = coarse_calibrate(**asdict(self.uav_data))
+        self.map = map
+        self.tolerance = tolerance
+        self.plot = plot
+        self.args = args
+        self.kwargs = kwargs
 
-        self.satellite_image, self.satellite_crs = await fetch_map(
-            self.map, self.uav_shape, self.uav_transform
+    async def calibrate(
+        self,
+        uav_data: UAVData,
+    ):
+        ctx = CalibrateCTX(uav_data)
+
+        ctx.rect_image, ctx.uav_transform = coarse_calibrate(**asdict(uav_data))
+
+        ctx.satellite_image, ctx.satellite_crs = await fetch_map(
+            self.map, ctx.uav_shape, ctx.uav_transform
         )
 
         # image matching
         match_result = match_images(
-            self.rect_image, self.satellite_image, *args, **kwargs
+            ctx.rect_image, ctx.satellite_image, *self.args, **self.kwargs
         )
-        if plot:
-            plot_matches(match_result, self.rect_image, self.satellite_image)
-        self.kpts0, self.kpts1, self.match_score = (
+        if self.plot:
+            plot_matches(match_result, ctx.rect_image, ctx.satellite_image)
+        ctx.kpts0, ctx.kpts1, ctx.match_score = (
             match_result.kpts0,
             match_result.kpts1,
             match_result.scores,
         )
 
         # use ransac algorithm to remove outliers and fit homographic transform matrix
-        threshold = tolerance / self.uav_transform.crs.resolution
-        homography_result = match_homography(self.kpts0, self.kpts1, threshold)
-        if plot:
-            plot_matches(homography_result, self.rect_image, self.satellite_image)
+        threshold = self.tolerance / ctx.uav_transform.crs.resolution
+        homography_result = match_homography(ctx.kpts0, ctx.kpts1, threshold)
+        if self.plot:
+            plot_matches(homography_result, ctx.rect_image, ctx.satellite_image)
 
         # apply transform matrix
-        self.uav_transform.follow(homography_result.mat)
-        self.uav_transform.crs = self.satellite_crs
-        return self.uav_transform.combined
+        ctx.uav_transform.follow(homography_result.mat)
+        ctx.uav_transform.crs = ctx.satellite_crs
+        return ctx.uav_transform.combined
