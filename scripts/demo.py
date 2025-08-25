@@ -46,9 +46,9 @@ def calibrate():
     calibration = Calibrator(uav_image)
     calibration.coarse_calibrate(**asdict(uav_data))
     src_shape = uav_image.shape
-    calibration.transform.adjust_shape(src_shape=(src_shape[1], src_shape[0]))
+    calibration.uav_transform.adjust_shape(src_shape=(src_shape[1], src_shape[0]))
 
-    tmp_transform = calibration.transform.combined
+    tmp_transform = calibration.uav_transform.combined
     h, w = calibration.uav_image.shape[:2]
     with satellite_map:
         satellite_info = satellite_map.get(
@@ -63,7 +63,7 @@ def calibrate():
 
 def update_lonlat():
     global uav_pos, satellite_pos, lon, lat
-    trans = calibration.transform
+    trans = calibration.uav_transform
     lon, lat = tuple(trans.crs.apply(np.array(satellite_pos, np.float64)).ravel())
     transformer = Transformer.from_crs(trans.crs.crs, "epsg:4326", always_xy=True)
     lon, lat = transformer.transform(lon, lat)
@@ -75,7 +75,7 @@ def uav_callback(event, x, y, flags, param):
     if event == cv2.EVENT_MOUSEMOVE:  # 鼠标移动事件
         uav_pos = (x, y)
         satellite_pos = tuple(
-            calibration.transform.apply(np.array(uav_pos, np.float64))
+            calibration.uav_transform.apply(np.array(uav_pos, np.float64))
             .ravel()
             .astype(int)
         )
@@ -87,7 +87,7 @@ def satellite_callback(event, x, y, flags, param):
     if event == cv2.EVENT_MOUSEMOVE:  # 鼠标移动事件
         satellite_pos = (x, y)
         uav_pos = tuple(
-            calibration.transform.apply_inverse(np.array(satellite_pos, np.float64))
+            calibration.uav_transform.apply_inverse(np.array(satellite_pos, np.float64))
             .ravel()
             .astype(int)
         )
