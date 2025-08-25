@@ -9,7 +9,6 @@ import numpy as np
 
 from .match import *
 
-torch.set_grad_enabled(False)
 
 device = torch.device("cuda")
 if not torch.cuda.is_available():
@@ -131,6 +130,7 @@ class LightGlueMatchResult(MatchResult):
     matches: LightGlueInstance
 
 
+@torch.no_grad()
 def match_images(
     image0: np.ndarray,
     image1: np.ndarray,
